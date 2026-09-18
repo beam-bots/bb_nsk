@@ -150,18 +150,15 @@ if Code.ensure_loaded?(Igniter) do
       """
     end
 
-    # The function references have to go in as code rather than as strings.
-    # A string in an alias list is a task name, so `mix firmware` would look for
-    # a task literally called "&BB.NSK.MixHelpers.prune_host_nifs/1" and stop.
+    # Plain task names. An alias entry is either a task name or a function, and
+    # Igniter writes a function reference into `mix.exs` as a literal
+    # `{:code, ...}` tuple which Mix then rejects — so the helpers are Mix tasks,
+    # and these are just strings.
     defp add_nif_aliases(igniter) do
       igniter
-      |> TaskAliases.add_alias("firmware", alias_for(:prune_host_nifs, "firmware"))
-      |> TaskAliases.add_alias("test", alias_for(:restore_host_nifs, "test"))
-      |> TaskAliases.add_alias("run", alias_for(:restore_host_nifs, "run"))
-    end
-
-    defp alias_for(function, task) do
-      [{:code, Sourceror.parse_string!("&BB.NSK.MixHelpers.#{function}/1")}, task]
+      |> TaskAliases.add_alias("firmware", ["bb_nsk.prune_nifs", "firmware"])
+      |> TaskAliases.add_alias("test", ["bb_nsk.restore_nifs", "test"])
+      |> TaskAliases.add_alias("run", ["bb_nsk.restore_nifs", "run"])
     end
 
     # Ahead of the robot, so the panel is still there when the robot's display

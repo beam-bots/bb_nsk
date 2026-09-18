@@ -19,20 +19,13 @@ if Code.ensure_loaded?(Igniter) do
     `BB.NSK.Drive` and its message stay here, because what the pad publishes and
     what the balance controller consumes has to be the same on both sides.
 
-    ## It needs Phoenix already
+    ## Where Phoenix comes from
 
-    Bootstrapping Phoenix is a separate step, and deliberately so. A package
-    added during an Igniter run is not on the code path for that same run to
-    compose — so a task that added `phx_install` and then tried to use it would
-    have to be run twice to work, and would look broken the first time. One
-    command up front is clearer than that:
-
-    ```bash
-    mix igniter.install phx_install
-    mix bb_nsk.add_web
-    ```
-
-    This task checks, and tells you the same thing if you forget.
+    `bb_nsk.install` adds `phx_install` as a dependency, and this composes the
+    five of its subtasks a LiveView dashboard needs. Splitting it that way is
+    not tidiness: a package added during an Igniter run is not on the code path
+    for that same run to compose, so it has to be in place a task ahead of the
+    one that uses it.
 
     ## Phoenix on a Nerves target is not Phoenix on a server
 
@@ -150,15 +143,17 @@ if Code.ensure_loaded?(Igniter) do
     defp needs_phx_install(igniter) do
       Igniter.add_warning(igniter, """
       bb_nsk.add_web found no Phoenix and no `phx_install` to build one with, so
-      it added nothing. Add the dependency and run this again:
+      it added nothing.
 
-          mix igniter.add phx_install
+      `mix bb_nsk.install` adds `phx_install`, so this usually means it has not
+      been run, or that the dependency was removed. Either way:
+
           mix deps.get
           mix bb_nsk.add_web
 
-      `mix igniter.install phx_install` would also work, and then fail: its
-      orchestrator adds `gettext ~> 0.26`, and `bb` reaches `localize`, which
-      wants `~> 1.0`. `igniter.add` adds the dependency without running it.
+      Reach for `mix igniter.install phx_install` and it will fail instead: its
+      orchestrator adds `gettext ~> 0.26` whatever `--no-gettext` says, and `bb`
+      reaches `localize`, which wants `~> 1.0`.
       """)
     end
 
@@ -218,7 +213,7 @@ if Code.ensure_loaded?(Igniter) do
       # `.formatter.exs` runs `Spark.Formatter` through `import_deps: [:bb]`, and
       # that needs sourceror to parse. Nothing declares it, so without this
       # `mix format` fails the moment a stale copy is cleaned out of `deps/`.
-      |> Deps.add_dep({:sourceror, "~> 1.7", runtime: false, targets: :host, only: [:dev, :test]})
+      |> Deps.add_dep({:sourceror, "~> 1.7", runtime: false, only: [:dev, :test]})
     end
 
     # `mix nerves.new` generates no `runtime.exs`, and the release step says so:

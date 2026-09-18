@@ -6,13 +6,18 @@ defmodule BB.NSK.MixHelpers do
   @moduledoc """
   Aliases a project needs when it draws on the panel.
 
-  `bb_nsk.add_display` wires these into `mix.exs`:
+  `bb_nsk.add_display` wires these into `mix.exs` as ordinary Mix tasks:
 
   ```elixir
-  firmware: [&BB.NSK.MixHelpers.prune_host_nifs/1, "firmware"],
-  test: [&BB.NSK.MixHelpers.restore_host_nifs/1, "test"],
-  run: [&BB.NSK.MixHelpers.restore_host_nifs/1, "run"]
+  firmware: ["bb_nsk.prune_nifs", "firmware"],
+  test: ["bb_nsk.restore_nifs", "test"],
+  run: ["bb_nsk.restore_nifs", "run"]
   ```
+
+  Tasks rather than function references. An alias entry is either a task name or
+  a function, and Igniter writes a function reference into `mix.exs` as a literal
+  `{:code, ...}` tuple that Mix then rejects — but a task name is just a string,
+  which needs nothing special from anybody.
 
   ## Why they are needed
 
@@ -45,8 +50,8 @@ defmodule BB.NSK.MixHelpers do
 
   Does nothing on the host, where the foreign library is the one that is wanted.
   """
-  @spec prune_host_nifs(list) :: :ok
-  def prune_host_nifs(_args) do
+  @spec prune_host_nifs() :: :ok
+  def prune_host_nifs do
     if Mix.target() != :host do
       Enum.each(nifs(matching?: false), fn nif ->
         Mix.shell().info("Removing #{Path.basename(nif)}, which is not #{@target_arch}")
@@ -60,8 +65,8 @@ defmodule BB.NSK.MixHelpers do
   @doc """
   Put the host's NIF back, if a firmware build took it away.
   """
-  @spec restore_host_nifs(list) :: :ok
-  def restore_host_nifs(_args) do
+  @spec restore_host_nifs() :: :ok
+  def restore_host_nifs do
     if Mix.target() == :host and nifs(matching?: false) == [] do
       Mix.shell().info("Restoring the host's Emerge NIF, which a firmware build removed")
       Mix.Task.run("deps.compile", ["emerge", "--force"])

@@ -118,10 +118,15 @@ Learned the hard way, and worth not rediscovering:
 - **A failed compose aborts the whole run and rolls back everything**, including
   `mix.exs` changes made earlier in the same pass. A task that half-works leaves
   no trace, which makes this hard to diagnose from the outside.
-- **Function references in `mix.exs` aliases must be `{:code, ast}`**, not
-  strings — a string is a task name. And the alias must start with
-  `"loadpaths"`, or the dependency defining the function is not loaded when Mix
-  tries to call it.
+- **`bb_nsk.install` adds `phx_install` so that `bb_nsk.add_web` can compose it.**
+  That is the whole reason it is in the base installer rather than the task that
+  wants it, and it is why `mix deps.get` belongs between the two.
+- **`Igniter.Project.TaskAliases` cannot write a function reference.** Its
+  typespec accepts `{:code, ast}`, at the top level or inside a list, and both
+  are written into `mix.exs` as a literal `{:code, ...}` tuple, which Mix then
+  rejects. The way out is not to need one: `bb_nsk.prune_nifs` and
+  `bb_nsk.restore_nifs` are ordinary Mix tasks, so the aliases are plain strings.
+  That is also what a person reading the `mix.exs` would rather see.
 
 ### Phoenix on Nerves
 

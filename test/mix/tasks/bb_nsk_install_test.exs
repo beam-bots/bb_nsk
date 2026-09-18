@@ -96,6 +96,19 @@ defmodule Mix.Tasks.BbNsk.InstallTest do
     test "bumps nerves_system_trellis past the version that can't boot it", %{igniter: igniter} do
       assert_has_content(igniter, "mix.exs", ~r/nerves_system_trellis, "~> 0\.5"/)
     end
+
+    # `bb_nsk.add_web` composes the `phx.install.*` tasks, and a package added
+    # during an Igniter run is not on the code path for that same run — so the
+    # dependency has to land a task earlier than the one that uses it.
+    test "adds phx_install, which add_web will need later", %{igniter: igniter} do
+      assert_has_content(igniter, "mix.exs", ~r/phx_install.*only: \[:dev, :test\]/)
+    end
+
+    test "adds the hardware access the wheels and the IMU need", %{igniter: igniter} do
+      igniter
+      |> assert_has_content("mix.exs", "circuits_gpio")
+      |> assert_has_content("mix.exs", "circuits_i2c")
+    end
   end
 
   describe "the robot module" do

@@ -38,12 +38,18 @@ if Code.ensure_loaded?(Igniter) do
     Nerves.Runtime.KV.put("fit_config", "nsk-balance-bot")
     ```
 
+    It also adds `phx_install`, which `bb_nsk.add_web` needs later. A package
+    added during an Igniter run is not available to that same run, so it has to
+    be put in place a task ahead of the one that uses it — which is also why
+    `mix deps.get` belongs between this and the rest.
+
     ## Example
 
     ```bash
     mix nerves.new my_bot --target trellis
     cd my_bot
     mix igniter.install bb_nsk
+    mix deps.get
     ```
 
     ## Options
@@ -61,10 +67,6 @@ if Code.ensure_loaded?(Igniter) do
     def info(_argv, _parent) do
       %Igniter.Mix.Task.Info{
         composes: ["bb.install", "bb_parameter_store_cubdb.install"],
-        adds_deps: [
-          {:circuits_gpio, "~> 2.1"},
-          {:circuits_i2c, "~> 2.1"}
-        ],
         schema: [robot: :string],
         aliases: [r: :robot]
       }
@@ -92,8 +94,16 @@ if Code.ensure_loaded?(Igniter) do
         "--robot",
         inspect(robot_module)
       ])
+      |> add_deps()
       |> add_nerves_system()
       |> write_provisioning()
+      |> Igniter.add_notice("""
+      Run `mix deps.get` before the `bb_nsk.add_*` tasks.
+
+      They reach for things this just added — `phx.install.*` comes from
+      `phx_install` — and Mix will not run a task while any dependency is
+      unfetched.
+      """)
     end
 
     # Igniter can't scaffold a Nerves project and shouldn't pretend to — the
@@ -130,6 +140,25 @@ if Code.ensure_loaded?(Igniter) do
           Module.create_module(igniter, robot_module, robot_contents())
       end
     end
+
+    # `phx_install` is added here rather than by `bb_nsk.add_web`, which is the
+    # task that actually wants it, because a package added during an Igniter run
+    # is not on the code path for that same run to compose. Putting it in place a
+    # task earlier means `add_web` can reach `phx.install.core` and friends, and
+    # nobody has to know why. Dev and test only — it is a code generator, and
+    # generators have no business in a firmware image.
+    #
+    # The others are the hardware access the wheels and the IMU need. All of them
+    # go in with `Deps.add_dep/2`, because `adds_deps:` fetches without writing
+    # to `mix.exs` and a project that only builds while `bb_nsk` is a path
+    # dependency is not a project that works.
+    @deps [
+      {:circuits_gpio, "~> 2.1"},
+      {:circuits_i2c, "~> 2.1"},
+      {:phx_install, "~> 0.1", only: [:dev, :test], runtime: false}
+    ]
+
+    defp add_deps(igniter), do: Enum.reduce(@deps, igniter, &Deps.add_dep(&2, &1))
 
     # `mix nerves.new --target trellis` pins `~> 0.4`, and this bumps it without
     # asking. 0.5.0 is the first release whose FIT image carries the

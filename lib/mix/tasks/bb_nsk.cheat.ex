@@ -26,15 +26,15 @@ if Code.ensure_loaded?(Igniter) do
     already half built — someone who worked through the first few by hand and
     then ran out of time gets the rest and keeps their edits to the rest.
 
-    It does not run `bb_nsk.install`, which has to have added the robot module
-    and the device tree provisioning before any of this has anywhere to attach.
-
-    Nor does it bootstrap Phoenix — `bb_nsk.add_web` needs a router to already
-    exist, for reasons its own docs explain. The full sequence from nothing:
+    It does not run `bb_nsk.install`, which has to have added the robot module,
+    the device tree provisioning and the `phx_install` dependency before any of
+    this has anywhere to attach. The whole thing from nothing:
 
     ```bash
+    mix nerves.new my_bot --target trellis
+    cd my_bot
     mix igniter.install bb_nsk
-    mix igniter.install phx_install
+    mix deps.get
     mix bb_nsk.cheat
     ```
 

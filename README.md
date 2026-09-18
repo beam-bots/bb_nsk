@@ -24,6 +24,7 @@ written into your project by an Igniter task.
 mix nerves.new my_bot --target trellis
 cd my_bot
 mix igniter.install bb_nsk
+mix deps.get
 ```
 
 Then add subsystems one at a time:
