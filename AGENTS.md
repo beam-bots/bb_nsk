@@ -1,0 +1,105 @@
+<!--
+SPDX-FileCopyrightText: 2026 James Harton
+
+SPDX-License-Identifier: Apache-2.0
+-->
+
+# AGENTS.md
+
+This file provides guidance to AI coding agents when working with code in this repository.
+
+## Project Overview
+
+`bb_nsk` is board support for Gus Workman's Nerves Starter Kit and the Beam Bots
+Balance Bot add-on. It contains two things:
+
+1. **Service modules** under `BB.NSK` — drivers and control loops that are the
+   same on every one of these boards.
+2. **Igniter tasks** under `Mix.Tasks.BbNsk` — a base installer plus one task per
+   subsystem, so the package can be installed a piece at a time.
+
+The design and its reasoning are in
+[proposal 0024](https://github.com/beam-bots/proposals). The prototype it was
+ported from is `goatzen`, whose `CLAUDE.md` carries the pin map, the device tree
+notes and the tuning measurements.
+
+## Build and Test Commands
+
+```sh
+mix check --no-retry          # everything: compile, test, format, credo, dialyzer, reuse
+mix test
+mix test path/to/test.exs:42
+mix format
+```
+
+## Hardware facts that bite
+
+**Every direction is the robot's, never the observer's.** The model follows
+REP-103 — +X forwards, +Y to the robot's left, +Z up — and forwards is the face
+that points at the ceiling when the robot is laid on its back. This has been got
+wrong three times: the IMU's +Y, the wheels' left and right, and which way the
+motors turned. When a direction is in doubt, resolve it with the gravity vector
+or by driving a wheel and watching, not by reasoning from a drawing.
+
+**The add-on is unreachable without the right device tree.** `nerves_system_trellis`
+ships three, and U-Boot picks by name from `fit_config`. The stock value is
+`nerves-starter-kit`, which has no PWM, no `i2c0` on PE2/PE3 and no `ledc`. The
+installer writes `config/provisioning.conf` to set `nsk-balance-bot`. A board
+burned before that can be fixed live:
+
+```elixir
+Nerves.Runtime.KV.put("fit_config", "nsk-balance-bot")
+```
+
+**The robot falls in 68ms.** An inverted pendulum diverges as `e^(t/tau)` with
+`tau = sqrt(L/g)`, and the centre of mass is 45.5mm above the axle. That is what
+makes a small balance bot violent rather than gentle, and it is why the loop runs
+at 200 Hz and why nothing in it may reach a NIF for arithmetic this small.
+
+**There is no encoder anywhere on this robot.** The wheels are open loop, so
+`Command.Position` and `Command.Effort` are refused rather than faked, and there
+is no odometry.
+
+## Conventions
+
+Follows the Beam Bots satellite skeleton: SPDX headers on every file (`reuse
+lint` runs in CI), `git_ops` releases from conventional commits, `mix check`
+as the quality gate.
+
+Comments explain **why**, never what. The tuning notes — which gains were swept,
+what the sweep found, which sign conventions are confirmed on hardware — are the
+most valuable thing in this package and belong next to the code they justify.
+Running commentary on what was tried does not.
+
+## Code Map
+
+| Path | Purpose |
+|---|---|
+| `lib/bb/nsk/pwm.ex` | sysfs PWM on the Allwinner `pwmchip0` |
+| `lib/bb/nsk/wheel.ex` | `BB.Actuator` driving one wheel through a DRV8837 |
+| `lib/bb/nsk/sensor/lean.ex` | the `:lean` joint's angle, from the fused orientation |
+| `lib/bb/nsk/sensor/heading.ex` | the `:ground` joint's yaw, from the gyroscope |
+| `lib/bb/nsk/balance/controller.ex` | the balance loop, its trim and its heading hold |
+| `lib/bb/nsk/command/` | `arm`, `stand`, `fall` and `poweroff` handlers |
+| `lib/bb/nsk/drive.ex` | a pilot's throttle and turn, over pubsub |
+| `lib/bb/nsk/igniter.ex` | topology surgery the `add_*` tasks share |
+| `lib/mix/tasks/` | the installer, its subsystem tasks, `cheat` and `doctor` |
+| `test/support/robot.ex` | the reference robot the tasks are checked against |
+
+`test/support/robot.ex` is the same robot the tasks generate, minus the IMU —
+the BMI323 driver stops rather than declining when the chip isn't there, which
+on the host would take the supervision tree with it. **If you change what a task
+emits, change it there too.** The end-to-end state machine test runs against it,
+so a drift between the two is a test that passes against a robot nobody has.
+
+## What the tasks build
+
+`bb_nsk.install` establishes the robot module and the device tree provisioning;
+`add_wheels`, `add_imu` and `add_balance` each attach one subsystem;
+`bb_nsk.cheat` composes the three. Every task is idempotent, and `cheat`
+produces a byte-identical robot to running them one at a time — there is a test
+for that, and it is the thing most likely to break silently.
+
+`bb_nsk.doctor` runs on the board and checks the five things that account for
+nearly every failure. Four of its five checks fail together when the device tree
+is wrong, which is what its advice leads with.
