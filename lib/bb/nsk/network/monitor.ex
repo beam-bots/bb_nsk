@@ -63,11 +63,25 @@ defmodule BB.NSK.Network.Monitor do
 
   @impl GenServer
   def init(opts) do
-    timeout = Keyword.get(opts, :connect_timeout, @default_connect_timeout)
+    if Network.available?() do
+      timeout = Keyword.get(opts, :connect_timeout, @default_connect_timeout)
 
-    VintageNet.subscribe(["interface", Network.interface(), "connection"])
+      VintageNet.subscribe(["interface", Network.interface(), "connection"])
 
-    {:ok, %{timeout: timeout, timer: nil}, {:continue, :decide}}
+      {:ok, %{timeout: timeout, timer: nil}, {:continue, :decide}}
+    else
+      # Declining rather than crashing, the way the wheels do when their PWM
+      # channels are not there. `vintage_net` only exists on the target, so
+      # without this every `iex -S mix` on a developer's machine takes the whole
+      # application down — and on a board that lost it, so would the web
+      # interface that is the way back in.
+      Logger.info(
+        "vintage_net is not available, so #{inspect(__MODULE__)} is not starting. " <>
+          "The robot will not manage its own network."
+      )
+
+      :ignore
+    end
   end
 
   @impl GenServer

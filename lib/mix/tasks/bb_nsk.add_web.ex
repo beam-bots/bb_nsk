@@ -70,7 +70,11 @@ if Code.ensure_loaded?(Igniter) do
 
     alias Igniter.Code.Common
     alias Igniter.Libs.Phoenix
-    alias Igniter.Project.{Application, Deps}
+    # Not `alias Igniter.Project.Module` — that shadows Elixir's own `Module`,
+    # which this needs for `concat/2`.
+    alias Igniter.Project.{Application, Config, Deps}
+    alias Igniter.Project.Module, as: ProjectModule
+    alias Sourceror.Zipper
 
     @host_only [targets: :host, only: [:dev]]
 
@@ -167,8 +171,9 @@ if Code.ensure_loaded?(Igniter) do
       ])
       |> scope_asset_deps()
       |> add_test_deps()
+      |> remove_dns_cluster()
       |> write_runtime_config()
-      |> fix_live_reload_patterns()
+      |> scope_dev_watchers(endpoint_module(igniter))
       |> generate_pages(robot_module)
       |> order_the_endpoint()
     end
@@ -219,8 +224,12 @@ if Code.ensure_loaded?(Igniter) do
     # `mix nerves.new` generates no `runtime.exs`, and the release step says so:
     # "skipping runtime configuration". So this creates the file rather than
     # patching it.
+    defp endpoint_module(igniter) do
+      igniter |> Phoenix.web_module() |> Module.concat(Endpoint)
+    end
+
     defp write_runtime_config(igniter) do
-      endpoint = Phoenix.web_module(igniter) |> Module.concat(Endpoint)
+      endpoint = endpoint_module(igniter)
 
       Igniter.create_or_update_elixir_file(
         igniter,
@@ -253,21 +262,167 @@ if Code.ensure_loaded?(Igniter) do
       """
     end
 
-    # `phx.install` writes its live-reload patterns as plain `~r"..."` sigils, and
-    # a regex in compile-time configuration has to carry the `E` modifier to
-    # survive being written into a release. Without it `mix firmware` fails at
-    # the very end with "you must use the /E modifier to store regexes", naming
-    # the endpoint rather than the config that produced it.
+    # `phx.install` configures asset watchers and live reload in `config/dev.exs`
+    # with nothing to say they are for a developer's machine. A Nerves firmware
+    # is built out of `:dev` by default, so on a board the endpoint starts and
+    # goes looking for `esbuild` and `tailwind` executables that were never
+    # cross-compiled and would be no use if they had been.
     #
-    # Only a Nerves project builds a release out of `:dev`, which is why this is
-    # ours to fix rather than something the installer gets wrong for everyone.
-    defp fix_live_reload_patterns(igniter) do
-      Igniter.update_file(igniter, "config/dev.exs", fn source ->
-        Rewrite.Source.update(source, :content, fn content ->
-          Regex.replace(~r/(~r"[^"]*")(?!E)/, content, "\\1E")
-        end)
+    # `Mix.target/0`, not `config_target/0`. This file is build-time config, and
+    # `config_target/0` belongs to runtime configuration — used here it raises
+    # "no :target key was given to this configuration file" the moment anything
+    # evaluates `config.exs`, which imports this.
+    #
+    # And not `config_env/0` either: that answers `:dev`, `:test` or `:prod` and
+    # never `:host`, so a guard written on it reads correctly and is always
+    # false. That mistake is why the prototype's watchers never ran at all.
+    #
+    # Guarding live reload here also settles the `E` modifier: a regex only has
+    # to survive being written into a release if it is evaluated during a release
+    # build, and inside this guard it is not.
+    defp scope_dev_watchers(igniter, endpoint) do
+      app = Application.app_name(igniter)
+
+      igniter
+      |> Config.configure("dev.exs", app, [endpoint, :watchers], [])
+      |> Config.configure("dev.exs", app, [endpoint, :live_reload], [])
+      |> Igniter.update_elixir_file("config/dev.exs", fn zipper ->
+        {:ok, Common.add_code(zipper, host_only_dev_config(app, endpoint))}
       end)
     end
+
+    defp host_only_dev_config(app, endpoint) do
+      """
+      # Only on a developer's machine. A Nerves firmware is built out of `:dev`,
+      # and a board has no asset toolchain to run and no source tree to watch.
+      if Mix.target() == :host do
+        config #{inspect(app)}, #{inspect(endpoint)},
+          watchers: [
+            esbuild: {Esbuild, :install_and_run, [#{inspect(app)}, ["--sourcemap=inline", "--watch"]]},
+            tailwind: {Tailwind, :install_and_run, [#{inspect(app)}, ["--watch"]]}
+          ],
+          live_reload: [
+            web_console_logger: true,
+            patterns: [
+              ~r"priv/static/(?!uploads/).*\\.(js|css|png|jpeg|jpg|gif|svg)$"E,
+              ~r"lib/.*_web/router\\.ex$"E,
+              ~r"lib/.*_web/(controllers|live|components)/.*\\.(ex|heex)$"E
+            ]
+          ]
+      end
+      """
+    end
+
+    # A robot is one node on a network it usually made itself. Clustering over
+    # DNS is for a fleet behind a service discovery record, and `phx.install`
+    # adds it to every project regardless.
+    defp remove_dns_cluster(igniter) do
+      igniter
+      |> Deps.remove_dep(:dns_cluster)
+      |> remove_dns_cluster_child()
+      |> remove_dns_cluster_config()
+    end
+
+    defp remove_dns_cluster_child(igniter) do
+      ProjectModule.find_and_update_module!(
+        igniter,
+        Application.app_module(igniter),
+        &drop_dns_cluster_child/1
+      )
+    end
+
+    defp remove_dns_cluster_config(igniter) do
+      Igniter.update_elixir_file(igniter, "config/runtime.exs", fn zipper ->
+        {:ok, remove_node(zipper, &dns_cluster_query?/1)}
+      end)
+    end
+
+    defp supervised_dns_cluster?({:{}, _meta, [{:__aliases__, _, [:DNSCluster]} | _]}), do: true
+    defp supervised_dns_cluster?({{:__aliases__, _, [:DNSCluster]}, _opts}), do: true
+    defp supervised_dns_cluster?(_node), do: false
+
+    defp dns_cluster_query?({:config, _meta, [_app, {:__block__, _, [:dns_cluster_query]} | _]}) do
+      true
+    end
+
+    defp dns_cluster_query?(_node), do: false
+
+    defp remove_node(zipper, predicate) do
+      case Zipper.find(zipper, predicate) do
+        nil -> zipper
+        found -> found |> Zipper.remove() |> Zipper.top()
+      end
+    end
+
+    # The list is rebuilt without the child rather than the child being removed
+    # from it. `Zipper.remove/1` leaves a `nil` literal where a list element was
+    # — as does `Igniter.Code.List.remove_from_list/2`, which is built on it —
+    # and a supervisor handed a `nil` child refuses to start, so the application
+    # does not boot and the board never reaches the network.
+    #
+    # Removing a *statement* from a block is fine, which is why the runtime
+    # configuration above can use `remove_node/2`.
+    #
+    # `mix nerves.new` writes `children = [...] ++ target_children()`, so the list
+    # is the left side of the `++` rather than the whole right-hand side.
+    # Rebuilds the children list without the child, rather than removing the
+    # child from it. `Zipper.remove/1` leaves a `nil` literal where a list element
+    # was — as does `Igniter.Code.List.remove_from_list/2`, which is built on it —
+    # and a supervisor handed a `nil` child refuses to start, so the application
+    # never boots and the board never reaches the network. Removing a *statement*
+    # from a block is fine, which is why the runtime configuration can use
+    # `remove_node/2`.
+    #
+    # Climbing to the enclosing list rather than taking `Zipper.up/1` once: a
+    # two-element tuple is itself traversed as a list of its two children, so the
+    # first list above a `{DNSCluster, opts}` child is the tuple's own insides.
+    # The one we want is the nearest list that *contains* a match.
+    defp drop_dns_cluster_child(zipper) do
+      with found when not is_nil(found) <- Zipper.find(zipper, &supervised_dns_cluster?/1),
+           {:ok, list} <- climb_to_containing_list(found, &supervised_dns_cluster?/1) do
+        {:ok, list |> reject_from_list(&supervised_dns_cluster?/1) |> Zipper.top()}
+      else
+        # Already gone, which is the expected case on a second run.
+        _nothing_to_do -> {:ok, zipper}
+      end
+    end
+
+    defp climb_to_containing_list(zipper, predicate) do
+      if zipper |> Zipper.node() |> list_contents() |> Enum.any?(&matches?(&1, predicate)) do
+        {:ok, zipper}
+      else
+        case Zipper.up(zipper) do
+          nil -> :error
+          up -> climb_to_containing_list(up, predicate)
+        end
+      end
+    end
+
+    defp reject_from_list(zipper, predicate) do
+      case Zipper.node(zipper) do
+        {:__block__, meta, [list]} when is_list(list) ->
+          Zipper.replace(zipper, {:__block__, meta, [reject(list, predicate)]})
+
+        list when is_list(list) ->
+          Zipper.replace(zipper, reject(list, predicate))
+
+        _not_a_list ->
+          zipper
+      end
+    end
+
+    defp reject(list, predicate), do: Enum.reject(list, &matches?(&1, predicate))
+
+    # Sourceror's literal encoder wraps each element of a list in a `__block__`,
+    # so a predicate written against the node it encloses never matches one.
+    defp matches?(element, predicate), do: predicate.(unwrap(element))
+
+    defp unwrap({:__block__, _meta, [inner]}), do: inner
+    defp unwrap(node), do: node
+
+    defp list_contents({:__block__, _meta, [list]}) when is_list(list), do: list
+    defp list_contents(list) when is_list(list), do: list
+    defp list_contents(_not_a_list), do: []
 
     defp generate_pages(igniter, robot_module) do
       web_module = Phoenix.web_module(igniter)

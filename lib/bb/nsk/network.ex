@@ -280,7 +280,15 @@ defmodule BB.NSK.Network do
   # `vintage_net` only exists on the target, and the setup page is built and
   # looked at on the host, so everything that reaches for it says so rather than
   # raising `UndefinedFunctionError` into a LiveView.
-  defp available?, do: Code.ensure_loaded?(VintageNet)
+  @doc """
+  Whether `vintage_net` is here to be driven.
+
+  False on the host, where the setup page is built and looked at but no radio
+  exists, so everything that reaches for it says so rather than raising
+  `UndefinedFunctionError` into a LiveView.
+  """
+  @spec available?() :: boolean
+  def available?, do: Code.ensure_loaded?(VintageNet)
 
   defp name do
     case Application.get_env(:bb_nsk, :name) do
