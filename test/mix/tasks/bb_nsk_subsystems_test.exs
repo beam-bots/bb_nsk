@@ -149,8 +149,11 @@ defmodule Mix.Tasks.BbNsk.SubsystemsTest do
     # The tasks `cheat` composes that write to the robot module.
     #
     # `add_wifi` is not one of them — it only touches config and the supervision
-    # tree — and `add_web` needs `phx_install` on the code path, which a synthetic
-    # test project has no way to carry. Both are covered end to end instead.
+    # tree — and `add_web` cannot be exercised from here at all: it composes the
+    # `phx.install.*` tasks, which need a real Phoenix project underneath them.
+    # Both are covered by generating a project and building firmware from it,
+    # which is also the only way the duplicate-route and duplicate-page bugs
+    # would have shown up.
     @robot_tasks [
       "bb_nsk.add_wheels",
       "bb_nsk.add_imu",

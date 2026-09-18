@@ -163,12 +163,7 @@ if Code.ensure_loaded?(Igniter) do
 
     defp add_web(igniter, robot_module, path) do
       igniter
-      |> Igniter.compose_task("bb_liveview.install", [
-        "--robot",
-        inspect(robot_module),
-        "--path",
-        path
-      ])
+      |> mount_dashboard(robot_module, path)
       |> scope_asset_deps()
       |> add_test_deps()
       |> remove_dns_cluster()
@@ -434,32 +429,79 @@ if Code.ensure_loaded?(Igniter) do
       |> add_routes(web_module)
     end
 
+    # Skipping on the module rather than on the path. Igniter's Phoenix extension
+    # relocates a LiveView into `live/` after it is created, so the path asked for
+    # here is not where it ends up — and an `on_exists: :skip` against the
+    # original path sees nothing on a second run and writes the page a second
+    # time, under a name the first one already has.
     defp copy_page(igniter, name, web_module, assigns) do
-      Igniter.copy_template(
-        igniter,
-        Path.join(:code.priv_dir(:bb_nsk), "templates/#{name}.ex.eex"),
-        # Igniter relocates a module to match its name, so this is where these
-        # land whatever is asked for. Naming it directly keeps the two in step.
-        Path.join(["lib", Macro.underscore(web_module), "#{name}.ex"]),
-        assigns,
-        on_exists: :skip
-      )
+      module = Module.concat(web_module, Macro.camelize(name))
+
+      case ProjectModule.module_exists(igniter, module) do
+        {true, igniter} ->
+          igniter
+
+        {false, igniter} ->
+          Igniter.copy_template(
+            igniter,
+            Path.join(:code.priv_dir(:bb_nsk), "templates/#{name}.ex.eex"),
+            Path.join(["lib", Macro.underscore(web_module), "#{name}.ex"]),
+            assigns,
+            on_exists: :skip
+          )
+      end
     end
 
     # The wifi page is the root, because an unconfigured robot is one you have
     # just joined the access point of and the first thing you want is to tell it
     # about a real network. The drive pad is one tap away from there.
+    # Neither of these is idempotent on its own. `bb_liveview.install` appends its
+    # dashboard scope every time it runs, and a second `live_session` of the same
+    # name is a compile error — "attempting to redefine live_session"; appending
+    # the pages twice gives duplicate routes. `bb_nsk.cheat` is meant to be safe
+    # to run over a project that is already half built, so both are guarded on
+    # what is already in the router.
+    defp mount_dashboard(igniter, robot_module, path) do
+      if router_mentions?(igniter, "bb_dashboard") do
+        igniter
+      else
+        Igniter.compose_task(igniter, "bb_liveview.install", [
+          "--robot",
+          inspect(robot_module),
+          "--path",
+          path
+        ])
+      end
+    end
+
     defp add_routes(igniter, web_module) do
-      Phoenix.append_to_scope(
-        igniter,
-        "/",
-        """
-        live "/", WifiLive
-        live "/drive", DriveLive
-        """,
-        with_pipelines: [:browser],
-        arg2: web_module
-      )
+      if router_mentions?(igniter, "DriveLive") do
+        igniter
+      else
+        Phoenix.append_to_scope(
+          igniter,
+          "/",
+          """
+          live "/", WifiLive
+          live "/drive", DriveLive
+          """,
+          with_pipelines: [:browser],
+          arg2: web_module
+        )
+      end
+    end
+
+    defp router_mentions?(igniter, text) do
+      with {_igniter, router} when not is_nil(router) <- Phoenix.select_router(igniter),
+           {:ok, {_igniter, _source, zipper}} <- ProjectModule.find_module(igniter, router) do
+        zipper
+        |> Zipper.topmost()
+        |> Zipper.node()
+        |> Sourceror.to_string()
+        |> String.contains?(text)
+      else
+        _no_router -> false
+      end
     end
 
     # Children terminate in the reverse of the order they start in, so putting

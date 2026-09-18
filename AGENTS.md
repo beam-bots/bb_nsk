@@ -123,6 +123,13 @@ Learned the hard way, and worth not rediscovering:
   `mix.exs`; the second writes but does not fetch. `bb_nsk.install` declares
   `phx_install` both ways, which is what lets `bb_nsk.cheat` run straight
   afterwards without `mix deps.get` in between.
+- **Router and page additions have to be guarded by hand.** `bb_liveview.install`
+  appends its dashboard scope every time it runs, and a second `live_session` of
+  the same name is a compile error. Igniter's Phoenix extension also relocates a
+  generated LiveView into `live/` *after* creating it, so an `on_exists: :skip`
+  against the path it was asked for sees nothing on a second run and writes the
+  page again under a name the first one already has. Skip on the module, not the
+  path.
 - **`bb_nsk.install` adds `phx_install` so that `bb_nsk.add_web` can compose it.**
   That is the whole reason it is in the base installer rather than in the task
   that wants it.
