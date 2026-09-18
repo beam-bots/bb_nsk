@@ -193,15 +193,26 @@ defmodule BB.NSK.Network do
   `:unconfigured` is a robot that has never been told anything, which is the
   state a freshly burned one is in until `BB.NSK.Network.Monitor` brings the
   access point up.
+
+  **A `VintageNetWiFi` interface with no networks counts as unconfigured**, which
+  is what it is: an interface that has been declared and never told what to join.
+  `mix nerves.new` writes exactly that — `{"wlan0", %{type: VintageNetWiFi}}` —
+  into `config/target.exs`, and reading it as `:station` costs a freshly burned
+  robot a full connection timeout of doing nothing before it gives up on a
+  network it was never told about and brings up its own.
   """
   @spec mode() :: :access_point | :station | :unconfigured
-  def mode do
-    case configuration() do
-      %{vintage_net_wifi: %{networks: [%{mode: :ap} | _rest]}} -> :access_point
-      %{type: VintageNetWiFi} -> :station
-      _nothing -> :unconfigured
-    end
-  end
+  def mode, do: mode(configuration())
+
+  @doc """
+  Which mode a particular `vintage_net` configuration describes.
+
+  Split out from `mode/0` so it can be reasoned about without a radio.
+  """
+  @spec mode(map | nil) :: :access_point | :station | :unconfigured
+  def mode(%{vintage_net_wifi: %{networks: [%{mode: :ap} | _rest]}}), do: :access_point
+  def mode(%{vintage_net_wifi: %{networks: [_network | _rest]}}), do: :station
+  def mode(_nothing), do: :unconfigured
 
   @doc """
   Bring up the robot's own access point.

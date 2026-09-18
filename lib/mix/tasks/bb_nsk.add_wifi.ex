@@ -37,12 +37,16 @@ if Code.ensure_loaded?(Igniter) do
     `mix bb_nsk.add_display` and it will show it — that is the only place it can
     be read from.
 
-    ## `wlan0` is deliberately left out of the config
+    ## `wlan0` is configured at runtime
 
-    Its configuration is applied at runtime, because the access point is named
-    after the serial number and that isn't known until the robot is running.
-    `default_config` rather than `config`, so that a saved configuration
-    replaces it without the confusion of appearing to ignore the file.
+    Not in `config/target.exs`, because the access point is named after the
+    board's serial number and that isn't known until the robot is running.
+
+    What `mix nerves.new` leaves there — `{"wlan0", %{type: VintageNetWiFi}}` —
+    is left alone. An interface declared with no networks is unconfigured by any
+    sensible reading, and `BB.NSK.Network.mode/1` reads it that way, so the robot
+    brings its own network up immediately rather than waiting out a connection
+    timeout for one it was never told about.
 
     ## Example
 
@@ -115,12 +119,14 @@ if Code.ensure_loaded?(Igniter) do
       igniter
       |> Application.add_new_child(BB.NSK.Network.Monitor, before: [:robot])
       |> Igniter.add_notice("""
-      bb_nsk.add_wifi: `wlan0` is deliberately absent from config/target.exs —
-      BB.NSK.Network.Monitor configures it at runtime, because the access point
-      is named after the board's serial number.
+      bb_nsk.add_wifi: the robot configures `wlan0` at runtime, because its
+      access point is named after the board's serial number and that isn't known
+      until it is running.
 
-      If your target config declares `wlan0` under `config :vintage_net`, remove
-      it, or the monitor and the static configuration will fight over the radio.
+      The `{"wlan0", %{type: VintageNetWiFi}}` that `mix nerves.new` leaves in
+      config/target.exs is harmless — an interface with no networks reads as
+      unconfigured, and the robot brings up its own. But if you give it real
+      networks there, it and the monitor will fight over the radio.
       """)
     end
   end
