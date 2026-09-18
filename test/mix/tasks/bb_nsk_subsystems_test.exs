@@ -146,20 +146,40 @@ defmodule Mix.Tasks.BbNsk.SubsystemsTest do
   end
 
   describe "bb_nsk.cheat" do
+    # The tasks `cheat` composes that write to the robot module.
+    #
+    # `add_wifi` is not one of them — it only touches config and the supervision
+    # tree — and `add_web` needs `phx_install` on the code path, which a synthetic
+    # test project has no way to carry. Both are covered end to end instead.
+    @robot_tasks [
+      "bb_nsk.add_wheels",
+      "bb_nsk.add_imu",
+      "bb_nsk.add_balance",
+      "bb_nsk.add_leds",
+      "bb_nsk.add_environment_sensor",
+      "bb_nsk.add_display"
+    ]
+
     # The whole point of `cheat` is that it is a plain composition. If it ever
     # diverges from running the tasks by hand, one of the two is lying about
     # what the workshop builds.
     test "reaches the same robot as running every task in turn" do
+      {last, earlier} = List.pop_at(@robot_tasks, -1)
+
+      # Applied between each, the way a person running them one at a time gets —
+      # but not after the last, or there is no pending change left to read.
       stepwise =
-        installed_project()
-        |> Igniter.compose_task("bb_nsk.add_wheels", [])
-        |> apply_igniter!()
-        |> Igniter.compose_task("bb_nsk.add_imu", [])
-        |> apply_igniter!()
-        |> Igniter.compose_task("bb_nsk.add_balance", [])
+        earlier
+        |> Enum.reduce(installed_project(), fn task, igniter ->
+          igniter |> Igniter.compose_task(task, []) |> apply_igniter!()
+        end)
+        |> Igniter.compose_task(last, [])
         |> robot_source()
 
-      cheated = installed_project() |> Igniter.compose_task("bb_nsk.cheat", []) |> robot_source()
+      cheated =
+        @robot_tasks
+        |> Enum.reduce(installed_project(), &Igniter.compose_task(&2, &1, []))
+        |> robot_source()
 
       assert cheated == stepwise
     end
@@ -172,7 +192,8 @@ defmodule Mix.Tasks.BbNsk.SubsystemsTest do
         |> Igniter.compose_task("bb_nsk.add_wheels", [])
         |> apply_igniter!()
 
-      once = Igniter.compose_task(half_built, "bb_nsk.cheat", [])
+      once =
+        Enum.reduce(@robot_tasks, half_built, &Igniter.compose_task(&2, &1, []))
 
       # The wheels the first pass added are still there and still singular —
       # `cheat` filled in the IMU and the balance loop around them rather than
@@ -184,9 +205,9 @@ defmodule Mix.Tasks.BbNsk.SubsystemsTest do
 
       # And a third pass leaves the file alone entirely rather than rewriting it
       # to the same thing.
-      once
-      |> apply_igniter!()
-      |> Igniter.compose_task("bb_nsk.cheat", [])
+      applied = apply_igniter!(once)
+
+      Enum.reduce(@robot_tasks, applied, &Igniter.compose_task(&2, &1, []))
       |> assert_unchanged("lib/my_bot/robot.ex")
     end
   end

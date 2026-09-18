@@ -95,10 +95,54 @@ so a drift between the two is a test that passes against a robot nobody has.
 ## What the tasks build
 
 `bb_nsk.install` establishes the robot module and the device tree provisioning;
-`add_wheels`, `add_imu` and `add_balance` each attach one subsystem;
-`bb_nsk.cheat` composes the three. Every task is idempotent, and `cheat`
-produces a byte-identical robot to running them one at a time — there is a test
-for that, and it is the thing most likely to break silently.
+the seven `add_*` tasks each attach one subsystem; `bb_nsk.cheat` composes them.
+Every task is idempotent, and `cheat` produces a byte-identical robot to running
+them one at a time — there is a test for that, and it is the thing most likely
+to break silently.
+
+### Igniter, and what does not work
+
+Learned the hard way, and worth not rediscovering:
+
+- **`adds_deps:` does not reliably reach `mix.exs` from a composed task.** It
+  exists to fetch and compile something *before* the task runs. For a dependency
+  that just needs to be in the consumer's project, call `Deps.add_dep/2` in
+  `igniter/1`. `bb_nsk.cheat` once produced a project with none of the display
+  or wifi dependencies because of this.
+- **A package added during a run is not on the code path for that same run.**
+  Neither `adds_deps:` nor `installs:` changes that from a composed task, so
+  `compose_task/2` cannot reach its installer. Anything whose *tasks* are needed
+  has to be a real dependency — which is why `bb_liveview` and
+  `bb_parameter_store_cubdb` are, and why `bb_nsk.add_web` requires `phx_install`
+  to already be there rather than adding it.
+- **A failed compose aborts the whole run and rolls back everything**, including
+  `mix.exs` changes made earlier in the same pass. A task that half-works leaves
+  no trace, which makes this hard to diagnose from the outside.
+- **Function references in `mix.exs` aliases must be `{:code, ast}`**, not
+  strings — a string is a task name. And the alias must start with
+  `"loadpaths"`, or the dependency defining the function is not loaded when Mix
+  tries to call it.
+
+### Phoenix on Nerves
+
+`bb_nsk.add_web` composes the five `phx.install.*` subtasks directly rather than
+`mix igniter.install phx_install`. The orchestrator adds `gettext ~> 0.26` to the
+project regardless of `--no-gettext` — the flag gates the generator, not the
+dependency — and `bb` reaches `localize`, which wants `~> 1.0`. The two cannot
+be resolved together.
+
+Three more things a board needs that a server does not, each found by a firmware
+build failing:
+
+- `esbuild` may **not** be scoped `targets: :host`. `bb_liveview` depends on it
+  for every target, and Nerves refuses a dependency narrower than its dependent.
+  Only `runtime: false` can be applied from here.
+- Dev/test-only dependencies should carry `only:` and **no** `targets:`. They are
+  already absent from firmware, and the extra restriction triggers the same
+  conflict — `sourceror` hit it through `ex_ast`.
+- `phx.install` writes live-reload patterns as plain `~r"..."`. A regex in
+  compile-time config needs the `E` modifier to survive being written into a
+  release, and only Nerves builds a release out of `:dev`.
 
 `bb_nsk.doctor` runs on the board and checks the five things that account for
 nearly every failure. Four of its five checks fail together when the device tree

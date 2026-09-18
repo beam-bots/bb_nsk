@@ -29,6 +29,15 @@ if Code.ensure_loaded?(Igniter) do
     It does not run `bb_nsk.install`, which has to have added the robot module
     and the device tree provisioning before any of this has anywhere to attach.
 
+    Nor does it bootstrap Phoenix — `bb_nsk.add_web` needs a router to already
+    exist, for reasons its own docs explain. The full sequence from nothing:
+
+    ```bash
+    mix igniter.install bb_nsk
+    mix igniter.install phx_install
+    mix bb_nsk.cheat
+    ```
+
     ## Options
 
     Passed straight through to the tasks underneath.
@@ -38,10 +47,19 @@ if Code.ensure_loaded?(Igniter) do
 
     use Igniter.Mix.Task
 
+    # Ordered so that each leaves the robot able to do something it couldn't
+    # before: it drives, then it knows which way up it is, then it stands. The
+    # rest are what makes it usable in a room — a state light, a screen, a
+    # network of its own and a way to drive it from a phone.
     @tasks [
       "bb_nsk.add_wheels",
       "bb_nsk.add_imu",
-      "bb_nsk.add_balance"
+      "bb_nsk.add_balance",
+      "bb_nsk.add_leds",
+      "bb_nsk.add_environment_sensor",
+      "bb_nsk.add_display",
+      "bb_nsk.add_wifi",
+      "bb_nsk.add_web"
     ]
 
     @impl Igniter.Mix.Task

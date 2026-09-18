@@ -38,7 +38,11 @@ defmodule BB.NSK.MixProject do
 
   defp dialyzer do
     [
-      plt_add_apps: [:mix]
+      # `vintage_net` and its wifi technology are `runtime: false`, which keeps
+      # them out of the PLT along with their types. Naming them here puts the
+      # types back without starting anything.
+      plt_add_apps: [:mix, :vintage_net, :vintage_net_wifi],
+      ignore_warnings: ".dialyzer_ignore.exs"
     ]
   end
 
@@ -81,6 +85,16 @@ defmodule BB.NSK.MixProject do
     [
       {:bb, bb_dep("~> 0.31")},
       {:bb_estimator_ahrs, bb_dep("~> 0.2 and >= 0.2.2", :bb_estimator_ahrs)},
+      # A real dependency rather than something `add_web` installs, for the same
+      # reason as the parameter store: a package added during a run is not on the
+      # code path for `compose_task/2` to reach, and neither `adds_deps:` nor
+      # `installs:` changes that from a composed task.
+      #
+      # It earns its place anyway. An unconfigured robot comes up as its own
+      # access point serving the drive page, and that page is how it is told
+      # about a real network — so on this robot the web interface is the way in,
+      # not an extra.
+      {:bb_liveview, bb_dep("~> 0.3", :bb_liveview)},
       {:bb_parameter_store_cubdb, bb_dep("~> 0.1", :bb_parameter_store_cubdb)},
       {:bb_sensor_bmi323, bb_dep("~> 0.1 and >= 0.1.4", :bb_sensor_bmi323)},
 
@@ -93,6 +107,25 @@ defmodule BB.NSK.MixProject do
       # task reads `fit_config` out of its KV store.
       {:nerves_runtime, "~> 0.13", optional: true},
 
+      # The panel's renderer. Optional because a robot that only balances should
+      # not carry a Skia NIF, and `optional: true` still puts it in the
+      # dependency graph — so where a consumer does have it, it is compiled
+      # before this package and the `Code.ensure_loaded?` guards see it.
+      {:emerge, "== 0.4.0-beta.1", optional: true},
+      {:video_interop, "~> 0.1.1", optional: true},
+
+      # `BB.NSK.Network` drives these directly. Optional because a robot that
+      # never runs `bb_nsk.add_wifi` has no use for them, and because they only
+      # mean anything on the target — but naming them gives dialyzer the types
+      # rather than a page of `unknown_function`.
+      #
+      # `runtime: false` because `vintage_net` takes over `/etc/resolv.conf` when
+      # it starts, which on a developer's laptop it cannot write and should not
+      # want to. Nothing here starts it; a robot that declares the wifi monitor
+      # gets it from its own dependency.
+      {:vintage_net, "~> 0.13", optional: true, runtime: false},
+      {:vintage_net_wifi, "~> 0.12", optional: true, runtime: false},
+
       # dev/test
       {:credo, "~> 1.7", only: [:dev, :test], runtime: false},
       {:dialyxir, "~> 1.4", only: [:dev, :test], runtime: false},
@@ -103,7 +136,14 @@ defmodule BB.NSK.MixProject do
       # a diverged-dependencies error.
       {:igniter, "~> 0.7 and >= 0.7.3", only: [:dev, :test], runtime: false},
       {:mimic, "~> 2.0", only: :test},
-      {:mix_audit, "~> 2.1", only: [:dev, :test], runtime: false}
+      {:mix_audit, "~> 2.1", only: [:dev, :test], runtime: false},
+      # `bb_nsk.add_web` composes `bb_liveview.install`, which composes the five
+      # `phx.install.*` subtasks that put Phoenix into a project that has none.
+      # `bb_liveview` declares `phx_install` via `adds_deps:`, which fetches it
+      # without putting its tasks on the code path — so it has to be a real
+      # dependency of something, and dev/test is the right scope for a code
+      # generator that never ships in firmware.
+      {:phx_install, "~> 0.1", only: [:dev, :test], runtime: false}
     ]
   end
 
