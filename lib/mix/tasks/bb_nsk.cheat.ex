@@ -34,7 +34,6 @@ if Code.ensure_loaded?(Igniter) do
     mix nerves.new my_bot --target trellis
     cd my_bot
     mix igniter.install bb_nsk
-    mix deps.get
     mix bb_nsk.cheat
     ```
 

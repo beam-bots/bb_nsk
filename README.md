@@ -21,11 +21,12 @@ written into your project by an Igniter task.
 ## Getting started
 
 ```sh
-mix nerves.new my_bot --target trellis
+mix igniter.new my_bot --with nerves.new --with-args="--target trellis" \
+  --install bb_nsk
 cd my_bot
-mix igniter.install bb_nsk
-mix deps.get
 ```
+
+`mix nerves.new` followed by `mix igniter.install bb_nsk` works too.
 
 Then add subsystems one at a time:
 

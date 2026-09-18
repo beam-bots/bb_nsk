@@ -40,8 +40,7 @@ if Code.ensure_loaded?(Igniter) do
 
     It also adds `phx_install`, which `bb_nsk.add_web` needs later. A package
     added during an Igniter run is not available to that same run, so it has to
-    be put in place a task ahead of the one that uses it — which is also why
-    `mix deps.get` belongs between this and the rest.
+    be put in place a task ahead of the one that uses it.
 
     ## Example
 
@@ -49,7 +48,6 @@ if Code.ensure_loaded?(Igniter) do
     mix nerves.new my_bot --target trellis
     cd my_bot
     mix igniter.install bb_nsk
-    mix deps.get
     ```
 
     ## Options
@@ -67,6 +65,11 @@ if Code.ensure_loaded?(Igniter) do
     def info(_argv, _parent) do
       %Igniter.Mix.Task.Info{
         composes: ["bb.install", "bb_parameter_store_cubdb.install"],
+        # Also in `@deps` below. `adds_deps:` fetches during the run but does not
+        # write to the consumer's `mix.exs`; `Deps.add_dep/2` writes but does not
+        # fetch. Both, and the dependency is there and usable without anyone
+        # having to run `mix deps.get` in between.
+        adds_deps: [{:phx_install, "~> 0.1", only: [:dev, :test], runtime: false}],
         schema: [robot: :string],
         aliases: [r: :robot]
       }
@@ -97,13 +100,6 @@ if Code.ensure_loaded?(Igniter) do
       |> add_deps()
       |> add_nerves_system()
       |> write_provisioning()
-      |> Igniter.add_notice("""
-      Run `mix deps.get` before the `bb_nsk.add_*` tasks.
-
-      They reach for things this just added — `phx.install.*` comes from
-      `phx_install` — and Mix will not run a task while any dependency is
-      unfetched.
-      """)
     end
 
     # Igniter can't scaffold a Nerves project and shouldn't pretend to — the

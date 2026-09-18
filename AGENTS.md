@@ -118,9 +118,14 @@ Learned the hard way, and worth not rediscovering:
 - **A failed compose aborts the whole run and rolls back everything**, including
   `mix.exs` changes made earlier in the same pass. A task that half-works leaves
   no trace, which makes this hard to diagnose from the outside.
+- **`adds_deps:` and `Deps.add_dep/2` do different halves of the job.** The first
+  fetches and compiles during the run but does not write to the consumer's
+  `mix.exs`; the second writes but does not fetch. `bb_nsk.install` declares
+  `phx_install` both ways, which is what lets `bb_nsk.cheat` run straight
+  afterwards without `mix deps.get` in between.
 - **`bb_nsk.install` adds `phx_install` so that `bb_nsk.add_web` can compose it.**
-  That is the whole reason it is in the base installer rather than the task that
-  wants it, and it is why `mix deps.get` belongs between the two.
+  That is the whole reason it is in the base installer rather than in the task
+  that wants it.
 - **`Igniter.Project.TaskAliases` cannot write a function reference.** Its
   typespec accepts `{:code, ast}`, at the top level or inside a list, and both
   are written into `mix.exs` as a literal `{:code, ...}` tuple, which Mix then
