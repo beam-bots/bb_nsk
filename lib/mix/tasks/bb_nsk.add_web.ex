@@ -32,10 +32,13 @@ if Code.ensure_loaded?(Igniter) do
     Once Phoenix is there, this mounts the `bb_liveview` dashboard and fixes the
     half-dozen places where a board differs from a server:
 
-    - `tailwind` and `heroicons` are scoped `targets: :host, only: [:dev]`, or
-      they get cross-compiled into firmware that wants neither. `esbuild` only
-      gets `runtime: false`: `bb_liveview` depends on it for every target, and
-      Nerves refuses a dependency scoped more narrowly than its dependent.
+    - `assets.deploy` is prepended to the `firmware` alias. A Nerves release is
+      assembled by `mix firmware`, which has no idea Phoenix is here, so nothing
+      else builds `priv/static` and the robot serves a page whose stylesheet
+      404s. `esbuild` and `tailwind` are left exactly as `phx.install` declares
+      them — `runtime: Mix.env() == :dev`, which is also what `bb_liveview` uses
+      — because they have to run *during* a target build and anything narrower
+      puts them out of reach of it.
     - `lazy_html` is added for `Phoenix.LiveViewTest`, which needs a DOM parser
       and doesn't bring one.
     - `sourceror` is added because `.formatter.exs` runs `Spark.Formatter`
@@ -75,23 +78,6 @@ if Code.ensure_loaded?(Igniter) do
     alias Igniter.Project.{Application, Config, Deps, TaskAliases}
     alias Igniter.Project.Module, as: ProjectModule
     alias Sourceror.Zipper
-
-    @build_only [only: [:dev], runtime: false]
-
-    # `esbuild` gets `runtime: false` and nothing else. `bb_liveview` depends on
-    # it unrestricted, and Nerves refuses a dependency scoped more narrowly than
-    # its dependent — on `:only` exactly as it does on `:targets`.
-    @esbuild_only [runtime: false]
-
-    # These run *during* a firmware build — `assets.deploy` invokes them to put
-    # `priv/static` together before the release is assembled — so none of them may
-    # be scoped `targets: :host`. That would leave the firmware build without them
-    # and the robot serving a page whose stylesheet 404s.
-    #
-    # `only: [:dev]` keeps them out of a production build and `runtime: false`
-    # keeps them from being started on the device, which is the whole of what is
-    # actually wanted.
-    @build_tools [:tailwind, :heroicons]
 
     # The five a LiveView dashboard needs, skipping ecto, mailer, gettext, page,
     # dashboard, heroicons and components — the same set `bb_liveview` picked,
@@ -172,7 +158,6 @@ if Code.ensure_loaded?(Igniter) do
     defp add_web(igniter, robot_module, path) do
       igniter
       |> mount_dashboard(robot_module, path)
-      |> scope_asset_deps()
       |> add_test_deps()
       |> remove_dns_cluster()
       |> write_runtime_config()
@@ -214,31 +199,6 @@ if Code.ensure_loaded?(Igniter) do
       |> Rewrite.source!("mix.exs")
       |> Rewrite.Source.get(:content)
       |> String.match?(~r/firmware:\s*\[[^\]]*"assets\.deploy"/)
-    end
-
-    defp scope_asset_deps(igniter) do
-      @build_tools
-      |> Enum.reduce(igniter, &rescope(&2, &1, @build_only))
-      |> rescope(:esbuild, @esbuild_only)
-    end
-
-    # Keeps whatever version the Phoenix installer chose and only narrows where
-    # the dependency applies — replacing the requirement with `>= 0.0.0` would
-    # silently widen it while claiming to be a scoping change.
-    defp rescope(igniter, name, opts) do
-      case Deps.get_dep(igniter, name) do
-        {:ok, nil} -> igniter
-        {:ok, current} -> Deps.add_dep(igniter, {name, version(current), opts}, yes?: true)
-        _error -> igniter
-      end
-    end
-
-    defp version(current) do
-      case Code.eval_string(current) do
-        {{_name, version}, _binding} when is_binary(version) -> version
-        {{_name, version, _opts}, _binding} when is_binary(version) -> version
-        _other -> ">= 0.0.0"
-      end
     end
 
     defp add_test_deps(igniter) do

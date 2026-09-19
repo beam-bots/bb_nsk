@@ -146,11 +146,12 @@ A Nerves release is assembled by `mix firmware`, which has no idea Phoenix is
 here — so nothing builds `priv/static` unless the `firmware` alias is made to.
 `bb_nsk.add_web` prepends `assets.deploy` to it.
 
-Which in turn means `esbuild`, `tailwind` and `heroicons` run *during a target
-build* and may not be scoped `targets: :host`. `esbuild` cannot take `only:`
-either, because `bb_liveview` depends on it unrestricted and Nerves refuses a
-dependency scoped more narrowly than its dependent — on `:only` exactly as on
-`:targets`.
+Which in turn means `esbuild` and `tailwind` run *during a target build*, so
+they are left exactly as `phx.install` declares them: `runtime: Mix.env() ==
+:dev`, which is also what `bb_liveview` uses. Anything narrower puts them out of
+reach of the firmware build — `targets: :host` and `only: [:dev]` were both tried
+and both fail, the latter because Nerves refuses a dependency scoped more
+narrowly than its dependent. They cost about 56K in the image and no binaries.
 
 ### Phoenix on Nerves
 
