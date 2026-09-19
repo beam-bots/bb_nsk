@@ -57,7 +57,11 @@ if Code.ensure_loaded?(Emerge) do
 
       {:ok, state,
        [
-         otp_app: :goatzen,
+         # This package, not the robot's. The fonts are `bb_nsk`'s own — Emerge
+         # resolves an asset's `source` against this application's `priv`, and
+         # naming the consumer would send it looking in a directory that has no
+         # fonts in it and fail the first time a frame is rendered.
+         otp_app: :bb_nsk,
          backend: :headless,
          rendering_api: :raster,
          width: width,

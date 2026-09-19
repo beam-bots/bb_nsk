@@ -72,18 +72,26 @@ if Code.ensure_loaded?(Igniter) do
     alias Igniter.Libs.Phoenix
     # Not `alias Igniter.Project.Module` — that shadows Elixir's own `Module`,
     # which this needs for `concat/2`.
-    alias Igniter.Project.{Application, Config, Deps}
+    alias Igniter.Project.{Application, Config, Deps, TaskAliases}
     alias Igniter.Project.Module, as: ProjectModule
     alias Sourceror.Zipper
 
-    @host_only [targets: :host, only: [:dev]]
+    @build_only [only: [:dev], runtime: false]
 
-    # `esbuild` is deliberately not in the list. `bb_liveview` depends on it for
-    # every target, and Nerves refuses a dependency whose `:targets` is narrower
-    # than a dependent's — the firmware build fails at `deps.get` with "does not
-    # match the :targets option calculated for". Scoping its *runtime* is the
-    # part that can be done from here.
-    @host_only_deps [:tailwind, :heroicons]
+    # `esbuild` gets `runtime: false` and nothing else. `bb_liveview` depends on
+    # it unrestricted, and Nerves refuses a dependency scoped more narrowly than
+    # its dependent — on `:only` exactly as it does on `:targets`.
+    @esbuild_only [runtime: false]
+
+    # These run *during* a firmware build — `assets.deploy` invokes them to put
+    # `priv/static` together before the release is assembled — so none of them may
+    # be scoped `targets: :host`. That would leave the firmware build without them
+    # and the robot serving a page whose stylesheet 404s.
+    #
+    # `only: [:dev]` keeps them out of a production build and `runtime: false`
+    # keeps them from being started on the device, which is the whole of what is
+    # actually wanted.
+    @build_tools [:tailwind, :heroicons]
 
     # The five a LiveView dashboard needs, skipping ecto, mailer, gettext, page,
     # dashboard, heroicons and components — the same set `bb_liveview` picked,
@@ -169,16 +177,49 @@ if Code.ensure_loaded?(Igniter) do
       |> remove_dns_cluster()
       |> write_runtime_config()
       |> scope_dev_watchers(endpoint_module(igniter))
+      |> build_assets_for_firmware()
       |> generate_pages(robot_module)
       |> order_the_endpoint()
     end
 
-    # Left unscoped these are cross-compiled into the firmware, which has no use
-    # for a CSS toolchain or an icon set.
-    defp scope_asset_deps(igniter) do
+    # Nothing else builds them. A Nerves release is assembled by `mix firmware`,
+    # which has no idea Phoenix is here, so without this `priv/static` is empty
+    # and the robot serves a page whose stylesheet 404s.
+    #
+    # Two calls rather than one: `:prepend` against a missing alias would set it
+    # to just `["assets.deploy"]` and lose the real task, so the base is
+    # established first. Both are skipped once `assets.deploy` is in there, which
+    # is what makes running this twice safe.
+    defp build_assets_for_firmware(igniter) do
+      if firmware_builds_assets?(igniter) do
+        igniter
+      else
+        igniter
+        |> TaskAliases.add_alias("firmware", ["firmware"])
+        |> TaskAliases.add_alias("firmware", ["assets.deploy"], if_exists: :prepend)
+      end
+    end
+
+    # Looking inside the `firmware` alias specifically. A plain search for
+    # "assets.deploy" matches the `"assets.deploy":` alias that `phx.install`
+    # defines, which is always there and says nothing about whether a firmware
+    # build runs it.
+    #
+    # Reading rather than rewriting, so a heuristic costs at worst a duplicated
+    # entry on a second run rather than broken code.
+    defp firmware_builds_assets?(igniter) do
       igniter
-      |> then(&Enum.reduce(@host_only_deps, &1, fn dep, acc -> rescope(acc, dep, @host_only) end))
-      |> rescope(:esbuild, runtime: false)
+      |> Igniter.include_existing_file("mix.exs")
+      |> Map.fetch!(:rewrite)
+      |> Rewrite.source!("mix.exs")
+      |> Rewrite.Source.get(:content)
+      |> String.match?(~r/firmware:\s*\[[^\]]*"assets\.deploy"/)
+    end
+
+    defp scope_asset_deps(igniter) do
+      @build_tools
+      |> Enum.reduce(igniter, &rescope(&2, &1, @build_only))
+      |> rescope(:esbuild, @esbuild_only)
     end
 
     # Keeps whatever version the Phoenix installer chose and only narrows where

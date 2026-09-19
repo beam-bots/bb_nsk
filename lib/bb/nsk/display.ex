@@ -33,8 +33,15 @@ if Code.ensure_loaded?(Emerge.UI) do
       [family: "Spleen Title", source: "fonts/spleen-16x32.otf", weight: 400]
     ]
 
-    @external_resource Path.join([__DIR__, "..", "..", "priv", "fonts", "spleen-8x16.otf"])
-    @external_resource Path.join([__DIR__, "..", "..", "priv", "fonts", "spleen-16x32.otf"])
+    # Three levels up, not two: this module sits at `lib/bb/nsk/`, a directory
+    # deeper than it did in the prototype. Pointing these at a path that does not
+    # exist costs nothing visible — they only exist so that editing a font forces
+    # a recompile — which is exactly why it is worth getting right rather than
+    # discovering later that it never worked.
+    @fonts_dir Path.join([__DIR__, "..", "..", "..", "priv", "fonts"])
+
+    @external_resource Path.join(@fonts_dir, "spleen-8x16.otf")
+    @external_resource Path.join(@fonts_dir, "spleen-16x32.otf")
 
     @width 400
     @height 300

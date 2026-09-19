@@ -140,6 +140,18 @@ Learned the hard way, and worth not rediscovering:
   `bb_nsk.restore_nifs` are ordinary Mix tasks, so the aliases are plain strings.
   That is also what a person reading the `mix.exs` would rather see.
 
+### Assets
+
+A Nerves release is assembled by `mix firmware`, which has no idea Phoenix is
+here — so nothing builds `priv/static` unless the `firmware` alias is made to.
+`bb_nsk.add_web` prepends `assets.deploy` to it.
+
+Which in turn means `esbuild`, `tailwind` and `heroicons` run *during a target
+build* and may not be scoped `targets: :host`. `esbuild` cannot take `only:`
+either, because `bb_liveview` depends on it unrestricted and Nerves refuses a
+dependency scoped more narrowly than its dependent — on `:only` exactly as on
+`:targets`.
+
 ### Phoenix on Nerves
 
 `bb_nsk.add_web` composes the five `phx.install.*` subtasks directly rather than
