@@ -27,6 +27,28 @@ if Code.ensure_loaded?(Igniter) do
     alias Sourceror.Zipper
 
     @doc """
+    Add a sensor to the robot's top-level `sensors do … end` section.
+
+    For a sensor that measures something about the robot's surroundings rather
+    than about a link — the HTS221 reads the air, and has no frame. It also
+    decides where the reading is published: a robot-level sensor publishes on
+    `[:sensor, <name>]`, where one hung off a link is buried under that link's
+    whole path.
+
+    Idempotent on `name`, and the section is created if it isn't there.
+    """
+    @spec add_robot_sensor(Igniter.t(), module(), atom(), String.t()) :: Igniter.t()
+    def add_robot_sensor(igniter, robot_module, name, code) do
+      Spark.Igniter.update_dsl(igniter, robot_module, [{:section, :sensors}], nil, fn zipper ->
+        if entity_present?(zipper, :sensor, name) do
+          {:ok, zipper}
+        else
+          {:ok, Common.add_code(zipper, code)}
+        end
+      end)
+    end
+
+    @doc """
     Append `code` to the body of the link named `link`, wherever it sits in the
     topology.
     """

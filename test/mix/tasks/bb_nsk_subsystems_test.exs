@@ -97,6 +97,26 @@ defmodule Mix.Tasks.BbNsk.SubsystemsTest do
     end
   end
 
+  describe "bb_nsk.add_environment_sensor" do
+    # A robot-level sensor, not one on a link. The placement is what decides the
+    # publish path — `[:sensor, :environment]` here, and under the link's whole
+    # chain if it were mounted on one — and `BB.NSK.Display.Controller`
+    # subscribes to the former. Get this wrong and the panel simply never shows
+    # a temperature, with nothing anywhere reporting a problem.
+    test "reads the air, so it hangs off the robot rather than a link" do
+      robot =
+        installed_project()
+        |> Igniter.compose_task("bb_nsk.add_environment_sensor", [])
+        |> robot_source()
+
+      # Tight rather than `/s`-loose on purpose: with dotall, `sensors do` would
+      # happily match across the whole topology to an `end` further down the
+      # file and pass however the sensor was placed.
+      assert robot =~
+               ~r/sensors do\n\s*sensor\(:environment, BB\.NSK\.Sensor\.Environment\)\n\s*end/
+    end
+  end
+
   describe "bb_nsk.add_balance" do
     setup do
       igniter =

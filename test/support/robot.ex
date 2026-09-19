@@ -69,6 +69,13 @@ defmodule BB.NSK.TestRobot do
     state(:fallen, doc: "Past recovering, wheels braked, waiting to be stood back up")
   end
 
+  # A robot-level sensor rather than one on a link: it reads the air, not a
+  # frame. That is also what puts its readings on `[:sensor, :environment]`,
+  # which is where the display controller listens.
+  sensors do
+    sensor(:environment, BB.NSK.Sensor.Environment)
+  end
+
   controllers do
     controller(
       :balancer,

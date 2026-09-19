@@ -8,8 +8,14 @@ if Code.ensure_loaded?(Igniter) do
     @moduledoc """
     #{@shortdoc}
 
-    Puts `BB.NSK.Sensor.Environment` on `:base_link`, reading the HTS221 at
-    `0x5F` on `i2c-0` and publishing `BB.NSK.Message.EnvironmentState`.
+    Adds `BB.NSK.Sensor.Environment` to the robot's `sensors` section, reading the
+    HTS221 at `0x5F` on `i2c-0` and publishing `BB.NSK.Message.EnvironmentState`
+    on `[:sensor, :environment]`.
+
+    A robot-level sensor rather than one hung off a link, because it reads the
+    air and not a frame. That also decides where the readings go: on a link it
+    would publish under that link's whole path, and the panel — which subscribes
+    to `[:sensor, :environment]` — would never see one.
 
     **This is the air, not the robot.** The sensor is deliberately placed away
     from the rest of the board so that it reads the room rather than the SoC, so
@@ -58,25 +64,18 @@ if Code.ensure_loaded?(Igniter) do
     def igniter(igniter) do
       robot_module = BB.Igniter.robot_module(igniter)
 
-      case NSK.link_exists?(igniter, robot_module, :base_link) do
-        {igniter, true} ->
-          igniter
-          |> Deps.add_dep(@hts221)
-          |> NSK.append_to_link(robot_module, :base_link, sensor(), {:sensor, :environment})
-
-        {igniter, false} ->
-          Igniter.add_warning(igniter, """
-          bb_nsk.add_environment_sensor found no `:base_link` in
-          #{inspect(robot_module)}'s topology, so it added nothing. Run
-          `mix bb_nsk.install` first.
-          """)
-      end
+      igniter
+      |> Deps.add_dep(@hts221)
+      |> NSK.add_robot_sensor(robot_module, :environment, sensor())
     end
 
+    # A robot-level sensor, not one hung off a link. It reads the air rather than
+    # anything about a frame, so it has no business in the topology — and the
+    # placement decides the publish path: `[:sensor, :environment]` here, against
+    # a link's whole chain if it were mounted on one. `BB.NSK.Display.Controller`
+    # subscribes to the former, which is how the panel gets a temperature.
     defp sensor do
       """
-      # Ambient air rather than anything about the robot — the chip is
-      # thermally isolated from the rest of the board on purpose.
       sensor(:environment, BB.NSK.Sensor.Environment)
       """
     end
