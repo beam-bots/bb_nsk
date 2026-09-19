@@ -84,11 +84,6 @@ Every `add_*` task takes `--robot`, and every one is safe to run twice.
 | Display | 4.2" 400x300 e-paper, UC8276 controller, one bit per pixel |
 | Environment | HTS221 at `0x5F` on `i2c-0` |
 
-**The device tree is the thing that goes wrong.** `nerves_system_trellis` ships
-three, and U-Boot picks by name; the stock choice reaches none of the add-on
-board. `bb_nsk.install` writes the provisioning that selects the right one, and
-`mix bb_nsk.doctor` says so when a board came up without it.
-
 ## Requirements
 
 - Elixir 1.19 or later
