@@ -69,7 +69,9 @@ if Code.ensure_loaded?(Igniter) do
         # write to the consumer's `mix.exs`; `Deps.add_dep/2` writes but does not
         # fetch. Both, and the dependency is there and usable without anyone
         # having to run `mix deps.get` in between.
-        adds_deps: [{:phx_install, "~> 0.1", only: [:dev, :test], runtime: false}],
+        adds_deps: [
+          {:phx_install, "~> 0.1", only: [:dev, :test], runtime: false}
+        ],
         schema: [robot: :string],
         aliases: [r: :robot]
       }

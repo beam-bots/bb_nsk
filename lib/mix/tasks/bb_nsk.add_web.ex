@@ -79,10 +79,12 @@ if Code.ensure_loaded?(Igniter) do
     alias Igniter.Project.Module, as: ProjectModule
     alias Sourceror.Zipper
 
-    @hook_import ~s|import {DrivePad} from "./drive_pad"|
+    @hook_name "DrivePad"
+    @hook_module "./drive_pad"
+    @hook_import ~s|import {#{@hook_name}} from "#{@hook_module}"|
     @import_anchor ~s|import topbar from "../vendor/topbar"|
     @live_socket_anchor "  longPollFallbackMs: 2500,"
-    @hook_option "  hooks: {DrivePad},"
+    @hook_option ~s|  hooks: {#{@hook_name}},|
 
     # The five a LiveView dashboard needs, skipping ecto, mailer, gettext, page,
     # dashboard, heroicons and components — the same set `bb_liveview` picked,
@@ -455,11 +457,18 @@ if Code.ensure_loaded?(Igniter) do
       |> register_drive_pad_hook()
     end
 
-    # `phx.install.assets` writes a `LiveSocket` with no `hooks:` at all, so both
-    # the import and the option have to be inserted. Anchored on lines it is known
-    # to generate, and if either is missing the snippet is printed rather than
-    # something being guessed at — a pad wired up wrongly is harder to diagnose
-    # than one that was never wired up.
+    # Anchored on two lines `phx.install.assets` is known to write, because the
+    # obvious alternative does not work here. `igniter_js` parses `app.js`
+    # properly and adds the `hooks:` key even though `phx.install` writes none —
+    # it was tried, and it is the right tool — but it reaches Rust through
+    # `rustler_precompiled`, as `emerge` does, and the two cannot be resolved
+    # together: `bb_nsk.install` would lock `rustler_precompiled` at 0.9 before
+    # `bb_nsk.add_display` adds an `emerge` that wants `~> 0.8.4`. Worth
+    # revisiting the day `emerge` moves.
+    #
+    # So: both anchors are checked before anything is written, and the snippet is
+    # printed if either is missing. A pad wired up wrongly is harder to diagnose
+    # than one that was never wired up at all.
     defp register_drive_pad_hook(igniter) do
       igniter = Igniter.include_existing_file(igniter, "assets/js/app.js")
 
@@ -467,27 +476,17 @@ if Code.ensure_loaded?(Igniter) do
         igniter.rewrite |> Rewrite.source!("assets/js/app.js") |> Rewrite.Source.get(:content)
 
       cond do
-        String.contains?(content, "drive_pad") ->
+        String.contains?(content, @hook_module) ->
           igniter
 
-        String.contains?(content, @live_socket_anchor) ->
+        String.contains?(content, @live_socket_anchor) and
+            String.contains?(content, @import_anchor) ->
           Igniter.update_file(igniter, "assets/js/app.js", fn source ->
             Rewrite.Source.update(source, :content, &add_hook_to_app_js/1)
           end)
 
         true ->
-          Igniter.add_warning(igniter, """
-          bb_nsk.add_web could not find where assets/js/app.js builds its
-          LiveSocket, so the drive pad's hook is not registered and the pad will
-          not respond to touch. Add it by hand:
-
-              #{@hook_import}
-
-              const liveSocket = new LiveSocket("/live", Socket, {
-              #{@hook_option}
-                ...
-              })
-          """)
+          hook_registration_failed(igniter)
       end
     end
 
@@ -499,6 +498,23 @@ if Code.ensure_loaded?(Igniter) do
         @live_socket_anchor <> "\n" <> @hook_option,
         global: false
       )
+    end
+
+    defp hook_registration_failed(igniter) do
+      Igniter.add_warning(igniter, """
+      bb_nsk.add_web could not find where assets/js/app.js builds its LiveSocket,
+      so the drive pad's hook is not registered and the pad will render without
+      responding to touch.
+
+      Add it by hand:
+
+          #{@hook_import}
+
+          const liveSocket = new LiveSocket("/live", Socket, {
+          #{@hook_option}
+            ...
+          })
+      """)
     end
 
     defp copy_page(igniter, name, web_module, assigns) do

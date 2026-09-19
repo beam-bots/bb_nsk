@@ -153,6 +153,26 @@ reach of the firmware build — `targets: :host` and `only: [:dev]` were both tr
 and both fail, the latter because Nerves refuses a dependency scoped more
 narrowly than its dependent. They cost about 56K in the image and no binaries.
 
+### The drive pad's hook, and igniter_js
+
+`bb_nsk.add_web` adds `import {DrivePad}` and a `hooks:` option to the
+consumer's `assets/js/app.js` by matching two lines `phx.install.assets` is known
+to write. That is not the right way to edit JavaScript and it is not an
+oversight.
+
+[`igniter_js`](https://hex.pm/packages/igniter_js) parses the file properly and
+adds the `hooks:` key even though `phx.install` writes none — it was tried, it
+works, and it preserves the comments. It cannot be used: it reaches Rust through
+`rustler_precompiled`, as `emerge` does, and the two will not resolve together.
+`bb_nsk.install` locks `rustler_precompiled` at 0.9 before `bb_nsk.add_display`
+adds an `emerge` that wants `~> 0.8.4`, and unlocking only moves the argument to
+`rustler` itself (`~> 0.36.2` against `~> 0.38`).
+
+**Revisit the day `emerge` moves to `rustler_precompiled ~> 0.9.** Until then the
+anchors are checked before anything is written and the snippet is printed if
+either is missing, because a pad wired up wrongly is harder to diagnose than one
+that was never wired up.
+
 ### Phoenix on Nerves
 
 `bb_nsk.add_web` composes the five `phx.install.*` subtasks directly rather than

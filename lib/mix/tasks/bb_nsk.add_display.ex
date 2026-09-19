@@ -72,11 +72,14 @@ if Code.ensure_loaded?(Igniter) do
     @deps [
       {:eink, git: "https://github.com/emerge-elixir/eink.git", branch: "feat/imperative-gray2"},
       {:emerge, "== 0.4.0-beta.1"},
-      {:video_interop, "~> 0.1.1"},
-      # Only needed when the NIF has to be built from source rather than
-      # downloaded, which on this board it no longer does. Kept so that a source
-      # build remains possible when diagnosing the precompiled one.
-      {:rustler, "~> 0.38", runtime: false}
+      {:video_interop, "~> 0.1.1"}
+      # `rustler` deliberately absent. It was here so that Emerge's NIF could be
+      # built from source when diagnosing the precompiled one — which this board
+      # never needs, since 0.4 publishes an `armv7-unknown-linux-gnueabihf`
+      # artefact — and pinning it to `~> 0.38` put it in conflict with
+      # `igniter_js`, which wants `~> 0.36.2`. A diagnostic aid is not worth a
+      # dependency that cannot be resolved; add it by hand for the afternoon you
+      # need it.
     ]
 
     @impl Igniter.Mix.Task
