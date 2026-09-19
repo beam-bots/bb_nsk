@@ -23,8 +23,10 @@ jobs:
     # so it can be tested before it is merged. Back to a `main` SHA once it is.
     uses: beam-bots/.github/.github/workflows/elixir-ci.yml@ci/os-packages
     with:
-      # `nerves_runtime` reaches `nerves_uevent`, which builds C against libmnl.
-      os-packages: libmnl-dev
+      # `nerves_runtime` reaches `nerves_uevent`, which builds C against libmnl,
+      # and `vintage_net_wifi` builds against libnl-genl. Both are optional
+      # dependencies here, carried so dialyzer has their types.
+      os-packages: libmnl-dev libnl-genl-3-dev
       enable-docs-deploy: true
       enable-release: true
     secrets:
