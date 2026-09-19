@@ -134,7 +134,7 @@ defmodule BB.NSK.MixProject do
       {:dialyxir, "~> 1.4", only: [:dev, :test], runtime: false},
       {:ex_check, "~> 0.16", only: [:dev, :test], runtime: false},
       {:ex_doc, ">= 0.0.0", only: [:dev, :test], runtime: false},
-      {:git_ops, "~> 2.9", only: [:dev, :test], runtime: false},
+      {:git_ops, "~> 2.0", only: [:dev, :test], runtime: false},
       # Tracks bb_liveview's constraint so consumers depending on both don't see
       # a diverged-dependencies error.
       {:igniter, "~> 0.7 and >= 0.7.3", only: [:dev, :test], runtime: false},
