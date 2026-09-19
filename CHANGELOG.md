@@ -10,6 +10,17 @@ See [Conventional Commits](Https://conventionalcommits.org) for commit guideline
 
 <!-- changelog -->
 
+## [v0.1.1](https://github.com/beam-bots/bb_nsk/compare/v0.1.0...v0.1.1) (2026-09-19)
+
+
+
+
+### Bug Fixes:
+
+* publish environment readings where the panel is listening by James Harton
+
+* declare the poweroff command, which nothing ever did by James Harton
+
 ## [v0.1.0](https://github.com/beam-bots/bb_nsk/compare/v0.1.0...v0.1.0) (2026-09-19)
 
 
