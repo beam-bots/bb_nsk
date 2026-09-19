@@ -57,7 +57,10 @@ if Code.ensure_loaded?(Igniter) do
 
     use Igniter.Mix.Task
 
+    alias Igniter.Code.Common
+    alias Igniter.Code.Function, as: CodeFunction
     alias Igniter.Project.{Application, Config, Deps, Formatter, Module}
+    alias Sourceror.Zipper
 
     @provisioning_path "config/provisioning.conf"
 
@@ -99,6 +102,7 @@ if Code.ensure_loaded?(Igniter) do
         "--robot",
         inspect(robot_module)
       ])
+      |> gate_parameter_store_on_target(robot_module)
       |> name_the_robot()
       |> add_deps()
       |> add_nerves_system()
@@ -174,6 +178,43 @@ if Code.ensure_loaded?(Igniter) do
     end
 
     defp add_deps(igniter), do: Enum.reduce(@deps, igniter, &Deps.add_dep(&2, &1))
+
+    # `bb_parameter_store_cubdb.install` picks the data directory when it runs,
+    # and on a Nerves project it picks `/root` — the application data partition,
+    # which is right on a board and does not exist on a laptop. CubDB creates its
+    # directory on start, so the robot's supervision tree fails there and nothing
+    # runs.
+    #
+    # The DSL is compiled, so this can be decided at compile time: a host build
+    # bakes in the build directory, a firmware build bakes in `/root`.
+    defp gate_parameter_store_on_target(igniter, robot_module) do
+      app = Application.app_name(igniter)
+
+      Spark.Igniter.update_dsl(
+        igniter,
+        robot_module,
+        [{:section, :parameter_store_cubdb}],
+        nil,
+        fn zipper -> {:ok, replace_data_dir(zipper, app)} end
+      )
+    end
+
+    defp replace_data_dir(zipper, app) do
+      code = """
+      # `/root` is the Nerves application data partition and does not exist on a
+      # host. The DSL is compiled, so this is decided when the firmware is built.
+      data_dir(
+        if Mix.target() == :host,
+          do: "_build/#{app}_params",
+          else: "/root/#{app}_params"
+      )
+      """
+
+      case CodeFunction.move_to_function_call_in_current_scope(zipper, :data_dir, [1]) do
+        {:ok, found} -> Zipper.replace(found, Sourceror.parse_string!(code))
+        _not_there -> Common.add_code(zipper, code)
+      end
+    end
 
     # `mix nerves.new --target trellis` pins `~> 0.4`, and this bumps it without
     # asking. 0.5.0 is the first release whose FIT image carries the

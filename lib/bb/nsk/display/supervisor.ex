@@ -19,6 +19,8 @@ defmodule BB.NSK.Display.Supervisor do
 
   use Supervisor
 
+  require Logger
+
   alias BB.NSK.Display.{FrameSink, Viewport}
 
   # `eink` is a git dependency, so it cannot be a dependency of a Hex package at
@@ -33,16 +35,37 @@ defmodule BB.NSK.Display.Supervisor do
 
   @impl Supervisor
   def init(opts) do
-    children =
+    Supervisor.init(children(opts), strategy: :rest_for_one)
+  end
+
+  # The renderer and the sink only exist when `emerge` was there to compile them
+  # against — see their `Code.ensure_loaded?` guards. Handing a supervisor a
+  # module that does not exist raises, which would take the whole application
+  # down and leave a robot nobody can reach, so a missing renderer is reported
+  # and skipped instead.
+  defp children(opts) do
+    if renderer_available?() do
+      mode = Keyword.get(opts, :mode, :bw1)
+
       panel_children() ++
         [
-          {FrameSink,
-           name: FrameSink, mode: Keyword.get(opts, :mode, :bw1), draw: draw(), clear: clear()},
-          {Viewport, name: Viewport, sink: FrameSink, mode: Keyword.get(opts, :mode, :bw1)}
+          {FrameSink, name: FrameSink, mode: mode, draw: draw(), clear: clear()},
+          {Viewport, name: Viewport, sink: FrameSink, mode: mode}
         ]
+    else
+      Logger.warning(
+        "#{inspect(FrameSink)} and #{inspect(Viewport)} were not compiled, so the panel " <>
+          "will stay blank. They need `emerge`, which `mix bb_nsk.add_display` adds — if it " <>
+          "is in `mix.exs` already then it compiled after this package, and " <>
+          "`mix deps.compile bb_nsk --force` will sort it out."
+      )
 
-    Supervisor.init(children, strategy: :rest_for_one)
+      []
+    end
   end
+
+  defp renderer_available?,
+    do: Code.ensure_loaded?(FrameSink) and Code.ensure_loaded?(Viewport)
 
   if Mix.target() == :host do
     defp panel_children, do: []

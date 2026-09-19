@@ -96,8 +96,9 @@ Every `add_*` task takes `--robot`, and every one is safe to run twice.
 
 ## Known limitations
 
-- **No simulation.** A generated project needs the hardware; it won't boot on
-  your laptop yet.
+- **Simulation is bare.** `SIMULATE=1 iex -S mix` boots on a laptop and the
+  robot arms and holds parameters, but every peripheral declines — there is no
+  simulated IMU, so it has nothing to balance against.
 - **No odometry, and no position hold.** There are no encoders, so two of the
   four states an inverted pendulum has are unobservable. It balances while
   drifting.
