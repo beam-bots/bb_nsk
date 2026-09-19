@@ -186,7 +186,7 @@ if Code.ensure_loaded?(Igniter) do
     # runs.
     #
     # The DSL is compiled, so this can be decided at compile time: a host build
-    # bakes in the build directory, a firmware build bakes in `/root`.
+    # bakes in `tmp/`, a firmware build bakes in `/root`.
     defp gate_parameter_store_on_target(igniter, robot_module) do
       app = Application.app_name(igniter)
 
@@ -203,9 +203,13 @@ if Code.ensure_loaded?(Igniter) do
       code = """
       # `/root` is the Nerves application data partition and does not exist on a
       # host. The DSL is compiled, so this is decided when the firmware is built.
+      #
+      # `tmp/` rather than `_build/` on the host — which is what
+      # `bb_parameter_store_cubdb` would pick for a project with no Nerves in it
+      # — because these are tuned values and `mix clean` should not take them.
       data_dir(
         if Mix.target() == :host,
-          do: "_build/#{app}_params",
+          do: "tmp/#{app}_params",
           else: "/root/#{app}_params"
       )
       """
