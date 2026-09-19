@@ -41,7 +41,10 @@ defmodule BB.NSK.MixProject do
       # `vintage_net` and its wifi technology are `runtime: false`, which keeps
       # them out of the PLT along with their types. Naming them here puts the
       # types back without starting anything.
-      plt_add_apps: [:mix, :vintage_net, :vintage_net_wifi],
+      # `:ex_unit` because CI runs dialyzer under `MIX_ENV=test`, which compiles
+      # `test/support` — and the case template in there is the only thing in the
+      # package that touches ExUnit.
+      plt_add_apps: [:ex_unit, :mix, :vintage_net, :vintage_net_wifi],
       ignore_warnings: ".dialyzer_ignore.exs"
     ]
   end
