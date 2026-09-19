@@ -80,13 +80,12 @@ defmodule BB.NSK.Network do
   The robot's name, then enough of the serial number to tell two robots apart —
   which a workshop full of them very much needs.
 
-  The name comes from `config :bb_nsk, :name`, which `bb_nsk.add_wifi` sets to
-  the host application. It cannot be derived here: this module's own OTP
-  application is `:bb_nsk`, so every robot on the bench would advertise the same
-  one.
+  The name comes from `BB.NSK.name/0`, which `bb_nsk.install` sets to the host
+  application. It cannot be derived here: this module's own OTP application is
+  `:bb_nsk`, so every robot on the bench would advertise the same one.
   """
   @spec ssid() :: String.t()
-  def ssid, do: "#{name()}-#{serial_suffix()}"
+  def ssid, do: "#{BB.NSK.name()}-#{serial_suffix()}"
 
   @doc """
   The passphrase for the robot's own network.
@@ -289,13 +288,6 @@ defmodule BB.NSK.Network do
   """
   @spec available?() :: boolean
   def available?, do: Code.ensure_loaded?(VintageNet)
-
-  defp name do
-    case Application.get_env(:bb_nsk, :name) do
-      nil -> "robot"
-      name -> to_string(name)
-    end
-  end
 
   defp serial_suffix, do: serial() |> String.slice(-4..-1) |> String.downcase()
 

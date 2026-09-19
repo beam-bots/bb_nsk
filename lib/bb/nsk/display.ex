@@ -90,18 +90,13 @@ if Code.ensure_loaded?(Emerge.UI) do
     @doc """
     The robot's name, as a screen shows it.
 
-    Read from the OTP application rather than written down, so that a robot built
-    from this wears its own name without anybody remembering to edit a screen. The
+    `BB.NSK.name/0` rather than written down, so that a robot built from this
+    wears its own name without anybody remembering to edit a screen. The
     dashboard's heading and the test card both ask for it, and before this they
     were two literals free to disagree.
     """
     @spec name() :: String.t()
-    def name do
-      __MODULE__
-      |> Application.get_application()
-      |> to_string()
-      |> String.upcase()
-    end
+    def name, do: BB.NSK.name() |> String.upcase()
 
     @doc """
     The modes the panel can be driven in.

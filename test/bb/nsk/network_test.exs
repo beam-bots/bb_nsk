@@ -3,8 +3,10 @@
 # SPDX-License-Identifier: Apache-2.0
 
 defmodule BB.NSK.NetworkTest do
-  use ExUnit.Case, async: true
+  # `BB.NSK.name/0` reads application configuration, which is global.
+  use ExUnit.Case, async: false
 
+  alias BB.NSK.Display
   alias BB.NSK.Network
 
   describe "mode/1" do
@@ -40,6 +42,32 @@ defmodule BB.NSK.NetworkTest do
       }
 
       assert Network.mode(configuration) == :access_point
+    end
+  end
+
+  describe "the robot's name" do
+    setup do
+      previous = Application.get_env(:bb_nsk, :name)
+      on_exit(fn -> Application.put_env(:bb_nsk, :name, previous) end)
+    end
+
+    # It cannot be derived: this package's own OTP application is `:bb_nsk`, so a
+    # robot asking its libraries what it is called gets `bb_nsk` back — which put
+    # `BB_NSK` across the top of a panel and would have had every robot on a
+    # bench advertising the same access point.
+    test "comes from configuration, not from this package" do
+      Application.put_env(:bb_nsk, :name, :eunice)
+
+      assert BB.NSK.name() == "eunice"
+      assert Display.name() == "EUNICE"
+      assert Network.ssid() =~ "eunice-"
+    end
+
+    test "falls back to something neutral rather than this package's name" do
+      Application.delete_env(:bb_nsk, :name)
+
+      assert BB.NSK.name() == "robot"
+      refute BB.NSK.name() =~ "bb_nsk"
     end
   end
 end

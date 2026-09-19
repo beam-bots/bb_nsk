@@ -85,21 +85,8 @@ if Code.ensure_loaded?(Igniter) do
       # needed *during* the run and does not reliably reach `mix.exs` from a
       # composed task.
       |> Deps.add_dep({:vintage_net_wifi, "~> 0.12", targets: [:trellis]})
-      |> name_the_network()
       |> configure_radio(domain)
       |> add_monitor()
-    end
-
-    # `BB.NSK.Network` can't work this out for itself: its own OTP application is
-    # `:bb_nsk`, so every robot on the bench would advertise the same name.
-    defp name_the_network(igniter) do
-      Config.configure(
-        igniter,
-        "config.exs",
-        :bb_nsk,
-        [:name],
-        to_string(Application.app_name(igniter))
-      )
     end
 
     defp configure_radio(igniter, domain) do

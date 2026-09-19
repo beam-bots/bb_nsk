@@ -79,6 +79,11 @@ if Code.ensure_loaded?(Igniter) do
     alias Igniter.Project.Module, as: ProjectModule
     alias Sourceror.Zipper
 
+    @hook_import ~s|import {DrivePad} from "./drive_pad"|
+    @import_anchor ~s|import topbar from "../vendor/topbar"|
+    @live_socket_anchor "  longPollFallbackMs: 2500,"
+    @hook_option "  hooks: {DrivePad},"
+
     # The five a LiveView dashboard needs, skipping ecto, mailer, gettext, page,
     # dashboard, heroicons and components — the same set `bb_liveview` picked,
     # and for the same reason: a robot has no use for them.
@@ -164,6 +169,7 @@ if Code.ensure_loaded?(Igniter) do
       |> scope_dev_watchers(endpoint_module(igniter))
       |> build_assets_for_firmware()
       |> generate_pages(robot_module)
+      |> install_drive_pad_hook()
       |> order_the_endpoint()
     end
 
@@ -435,6 +441,66 @@ if Code.ensure_loaded?(Igniter) do
     # here is not where it ends up — and an `on_exists: :skip` against the
     # original path sees nothing on a second run and writes the page a second
     # time, under a name the first one already has.
+    # The pad is a JavaScript hook — `phx-hook="DrivePad"` — so without this it
+    # renders and does absolutely nothing when touched. It ships as a module of
+    # its own rather than being pasted into `app.js`, so that a project can
+    # update it with the package.
+    defp install_drive_pad_hook(igniter) do
+      igniter
+      |> Igniter.create_new_file(
+        "assets/js/drive_pad.js",
+        File.read!(Path.join(:code.priv_dir(:bb_nsk), "templates/drive_pad.js")),
+        on_exists: :skip
+      )
+      |> register_drive_pad_hook()
+    end
+
+    # `phx.install.assets` writes a `LiveSocket` with no `hooks:` at all, so both
+    # the import and the option have to be inserted. Anchored on lines it is known
+    # to generate, and if either is missing the snippet is printed rather than
+    # something being guessed at — a pad wired up wrongly is harder to diagnose
+    # than one that was never wired up.
+    defp register_drive_pad_hook(igniter) do
+      igniter = Igniter.include_existing_file(igniter, "assets/js/app.js")
+
+      content =
+        igniter.rewrite |> Rewrite.source!("assets/js/app.js") |> Rewrite.Source.get(:content)
+
+      cond do
+        String.contains?(content, "drive_pad") ->
+          igniter
+
+        String.contains?(content, @live_socket_anchor) ->
+          Igniter.update_file(igniter, "assets/js/app.js", fn source ->
+            Rewrite.Source.update(source, :content, &add_hook_to_app_js/1)
+          end)
+
+        true ->
+          Igniter.add_warning(igniter, """
+          bb_nsk.add_web could not find where assets/js/app.js builds its
+          LiveSocket, so the drive pad's hook is not registered and the pad will
+          not respond to touch. Add it by hand:
+
+              #{@hook_import}
+
+              const liveSocket = new LiveSocket("/live", Socket, {
+              #{@hook_option}
+                ...
+              })
+          """)
+      end
+    end
+
+    defp add_hook_to_app_js(content) do
+      content
+      |> String.replace(@import_anchor, @import_anchor <> "\n" <> @hook_import, global: false)
+      |> String.replace(
+        @live_socket_anchor,
+        @live_socket_anchor <> "\n" <> @hook_option,
+        global: false
+      )
+    end
+
     defp copy_page(igniter, name, web_module, assigns) do
       module = Module.concat(web_module, Macro.camelize(name))
 

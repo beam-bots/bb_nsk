@@ -57,7 +57,7 @@ if Code.ensure_loaded?(Igniter) do
 
     use Igniter.Mix.Task
 
-    alias Igniter.Project.{Config, Deps, Formatter, Module}
+    alias Igniter.Project.{Application, Config, Deps, Formatter, Module}
 
     @provisioning_path "config/provisioning.conf"
 
@@ -97,6 +97,7 @@ if Code.ensure_loaded?(Igniter) do
         "--robot",
         inspect(robot_module)
       ])
+      |> name_the_robot()
       |> add_deps()
       |> add_nerves_system()
       |> write_provisioning()
@@ -153,6 +154,22 @@ if Code.ensure_loaded?(Igniter) do
       {:circuits_i2c, "~> 2.1"},
       {:phx_install, "~> 0.1", only: [:dev, :test], runtime: false}
     ]
+
+    # Nothing in this package can work the robot's name out for itself — its own
+    # OTP application is `:bb_nsk`, so a robot asking gets the library's name
+    # back. That is how a board came up with `BB_NSK` across the top of its panel.
+    #
+    # Set here rather than by the tasks that use it, because the panel and the
+    # access point both want it and neither implies the other.
+    defp name_the_robot(igniter) do
+      Config.configure(
+        igniter,
+        "config.exs",
+        :bb_nsk,
+        [:name],
+        to_string(Application.app_name(igniter))
+      )
+    end
 
     defp add_deps(igniter), do: Enum.reduce(@deps, igniter, &Deps.add_dep(&2, &1))
 
