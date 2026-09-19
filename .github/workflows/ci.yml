@@ -19,9 +19,7 @@ permissions:
 
 jobs:
   CI:
-    # TEMPORARY: tracking the branch of beam-bots/.github that adds `os-packages`
-    # so it can be tested before it is merged. Back to a `main` SHA once it is.
-    uses: beam-bots/.github/.github/workflows/elixir-ci.yml@ci/os-packages
+    uses: beam-bots/.github/.github/workflows/elixir-ci.yml@a3e0165959ab67138381df9f12f7012b99f0d99b # main
     with:
       # `nerves_runtime` reaches `nerves_uevent`, which builds C against libmnl,
       # and `vintage_net_wifi` builds against libnl-genl. Both are optional
