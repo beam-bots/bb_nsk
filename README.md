@@ -101,9 +101,10 @@ Every `add_*` task takes `--robot`, and every one is safe to run twice.
 - **No odometry, and no position hold.** There are no encoders, so two of the
   four states an inverted pendulum has are unobservable. It balances while
   drifting.
-- **No buttons or battery telemetry.** Both are behind the v1 board's STM32,
-  whose wire format is undocumented, and the MCU is being dropped from the final
-  kit.
+- **No buttons or battery telemetry yet.** Both are behind the board's STM32,
+  which speaks an ASCII protocol over `/dev/ttyS2` and comes pre-flashed. This is
+  deliberately left undone — it is the obvious thing to build once the robot is
+  standing up, and a generator for it will follow.
 
 ## Related packages
 

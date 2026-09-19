@@ -18,10 +18,15 @@ defmodule BB.NSK.Status do
   the board's serial number rather than stored, so the panel is the one place it
   can be read from — see `BB.NSK.Network`.
 
-  Every field is nillable: some of it is genuinely unavailable. There is no
-  battery telemetry on this board at all — no PMIC or fuel gauge, and `gpadc` is
-  disabled in the device tree — so `battery_percent` is always `nil` until an
-  INA219 or similar is fitted to one of the live I2C buses.
+  Every field is nillable, and `battery_percent` always is: nothing here talks to
+  the STM32, which is what reads the battery. The SoC cannot — it has no PMIC or
+  fuel gauge of its own, and `gpadc` is disabled in the device tree — so the
+  charger, the current sense and the pack voltage divider all hang off the MCU
+  and reach Linux over `/dev/ttyS2`.
+
+  That link is available rather than blocked: the boards arrive pre-flashed and
+  the protocol is ASCII. Reading it is left as something to build, not something
+  the hardware refuses.
   """
 
   # VintageNet is only built for the target, so the network fields come back nil
