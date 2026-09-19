@@ -51,6 +51,17 @@ defmodule BB.NSK.TestRobot do
       handler(BB.NSK.Command.Fall)
       allowed_states([:balancing, :idle])
     end
+
+    # There is no power button, and pulling the battery on a robot mid-write to
+    # its application partition is how a configuration goes missing.
+    #
+    # Disarmed only: taking the operating system out from under a balancing
+    # robot drops it on the floor. `disarm` reaches every state the robot can
+    # get stuck in, so there is always a way through to here.
+    command :poweroff do
+      handler(BB.NSK.Command.Poweroff)
+      allowed_states([:disarmed])
+    end
   end
 
   states do

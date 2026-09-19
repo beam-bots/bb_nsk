@@ -130,6 +130,21 @@ defmodule Mix.Tasks.BbNsk.InstallTest do
       |> assert_has_content("lib/my_bot/robot.ex", "mass(@body_mass)")
     end
 
+    # There is no power button on the board, so without this the only ways to
+    # switch a robot off are an SSH session and pulling the battery — and
+    # pulling the battery mid-write to the application partition is how a
+    # configuration goes missing.
+    test "gives the robot a way to switch itself off", %{igniter: igniter} do
+      igniter
+      |> assert_has_content("lib/my_bot/robot.ex", "command :poweroff")
+      |> assert_has_content("lib/my_bot/robot.ex", "BB.NSK.Command.Poweroff")
+      # Disarmed only: taking the OS out from under a balancing robot drops it.
+      |> assert_has_content(
+        "lib/my_bot/robot.ex",
+        ~r/command :poweroff do.*allowed_states\(\[:disarmed\]\)/s
+      )
+    end
+
     # No hardware — that is what the add_* tasks are for, and a workshop needs
     # each of them to be a visible step rather than a fait accompli.
     test "adds no wheels, no IMU and no balance loop", %{igniter: igniter} do
