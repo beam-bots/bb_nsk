@@ -218,14 +218,8 @@ if Code.ensure_loaded?(Igniter) do
 
     defp balance_params do
       """
-      # Where the robot is asked to hold itself. Not zero: the centre of mass
-      # sits ahead of the wheel axis, so it is only in equilibrium leaning back
-      # far enough to bring the mass over the wheels.
-      #
-      # It is a parameter because the calculated angle is where the robot *can*
-      # stand still, not necessarily where it stands still best: it moves with
-      # anything that shifts the mass, and the measurement has a millimetre or so
-      # in it, which is a degree of lean.
+      # Not zero: the centre of mass sits ahead of the wheel axis, so the robot
+      # is only in equilibrium leaning back far enough to bring it over them.
       param(:setpoint,
         type: {:unit, :degree},
         default: ~u(-3 degree),
@@ -234,11 +228,9 @@ if Code.ensure_loaded?(Igniter) do
         doc: "The lean the balance controller holds, negative leaning back"
       )
 
-      # Found on the robot rather than guessed. Judged against the sustained lean
-      # error rather than how long the robot stayed up, which cannot resolve
-      # anything at five trials: 180 with a derivative gain of 4.0 holds 0.57
-      # degrees where 120 with 2.0 holds 2.15, and drives at 1.6 rad/s where 120
-      # drives at 4.6. That is the runaway, mostly gone. 240 is worse.
+      # Found on the robot rather than guessed, and paired with
+      # `derivative_gain` — what matters is the ratio. The sweeps behind both are
+      # in `mix help bb_nsk.add_balance`.
       param(:proportional_gain,
         type: :float,
         default: 180.0,
@@ -247,16 +239,8 @@ if Code.ensure_loaded?(Igniter) do
         doc: "Wheel velocity per radian of lean error, in 1/s"
       )
 
-      # A sharp optimum, not a plateau, and what matters is the ratio to
-      # `proportional_gain` rather than the value. At kp 180, five trials each,
-      # on the sustained lean error:
-      #
-      #     kd 4.0  ->  0.57 deg, drives 1.6 rad/s, trim settles at -3.3
-      #     kd 5.0  ->  2.21 deg, drives 6.6 rad/s, trim alternates clamp to clamp
-      #     kd 6.0  ->  4.38 deg, drives 14.9 rad/s, saturates in every trial
-      #
-      # Above 4.0 the derivative term amplifies gyro noise into the command, the
-      # wheels clip, and the loop rings at 0.06 to 0.08s.
+      # A sharp optimum, not a plateau. Above 4.0 the derivative term amplifies
+      # gyro noise into the command and the wheels clip.
       param(:derivative_gain,
         type: :float,
         default: 4.0,
@@ -265,11 +249,9 @@ if Code.ensure_loaded?(Igniter) do
         doc: "Wheel velocity per radian per second of lean rate"
       )
 
-      # It matters more than a bias corrector: the commanded velocity is the only
-      # estimate of how fast the robot is going that this hardware can produce,
-      # so this is the only velocity feedback in the system. Every configuration
-      # measured without it shows the lean error growing four to eight times
-      # within an attempt, which is a robot rocking while it accelerates away.
+      # More than a bias corrector: the commanded velocity is the only estimate
+      # of speed this hardware can produce, so this is the only velocity feedback
+      # in the system. Without it the robot rocks as it accelerates away.
       param(:trim_gain,
         type: :float,
         default: 0.01,
@@ -294,11 +276,9 @@ if Code.ensure_loaded?(Igniter) do
         doc: "Lean error past which it gives up and waits to be stood back up"
       )
 
-      # Tight on purpose, and the single biggest improvement of a whole tuning
-      # session. At 5 degrees and 20 degrees per second the robot took over while
-      # still moving in the operator's hand, and the loop spent its whole life
-      # responding to that transient: peak errors of 15 to 26 degrees, and a
-      # run-to-run spread that swamped every gain change being measured.
+      # Tight on purpose. Any looser and the robot takes over while still moving
+      # in the operator's hand, and then spends its life answering that
+      # transient rather than balancing.
       param(:catch_angle,
         type: {:unit, :degree},
         default: ~u(2 degree),
@@ -337,10 +317,9 @@ if Code.ensure_loaded?(Igniter) do
         doc: "How fast the drive lean may change, so a thumb slammed over ramps rather than steps"
       )
 
-      # Four times `ramp`, so letting go unwinds a full `authority` in seven ticks
-      # of the loop against the 250ms it takes to wind on. The asymmetry is argued
-      # from which direction the resulting kick points rather than from a trial —
-      # if letting go still feels slow, this is the knob.
+      # Four times `ramp`: slow to wind on so a thumb slammed over does not lurch,
+      # fast to unwind so letting go stops the robot promptly. If letting go
+      # still feels slow, this is the knob.
       param(:release,
         type: {:unit, :degree_per_second},
         default: ~u(32 degree_per_second),
@@ -353,20 +332,12 @@ if Code.ensure_loaded?(Igniter) do
 
     defp yaw_params do
       """
-      # Holding a heading, so a wheel finding more grip than the other doesn't
+      # Holds a heading, so a wheel finding more grip than the other doesn't
       # quietly turn the robot.
       #
-      # **Both signs are confirmed on hardware**, and separately, because a loop
-      # with both inverted behaves exactly like one with both right and no
-      # closed-loop test can tell them apart. Twisting the robot to its own left
-      # raises the heading, and a positive differential — left wheel back, right
-      # wheel forward — turns it to its left.
-      #
-      # Swept with a software step, residual heading error after a 30 degree
-      # shove: gain 4.0 leaves 6.9 degrees, 8.0 leaves 2.1, 16.0 leaves 0.5. A
-      # consistent 3.4x fall per doubling and no ringing at any of them. Higher
-      # than 16 would only govern the last five degrees, because `limit` binds
-      # above 10.7 degrees of error at this gain.
+      # **Both signs are confirmed on hardware**, and separately: a loop with
+      # both inverted behaves exactly like one with both right, and no
+      # closed-loop test can tell them apart.
       param(:gain,
         type: :float,
         default: 16.0,
@@ -375,8 +346,7 @@ if Code.ensure_loaded?(Igniter) do
         doc: "Differential wheel velocity per radian of heading error, in 1/s"
       )
 
-      # Never swept. Set to 0.5 before the gain sweep and left there, so it is
-      # part of a tested configuration rather than a tested value.
+      # Never swept — part of a tested configuration rather than a tested value.
       param(:damping,
         type: :float,
         default: 0.5,
@@ -385,9 +355,8 @@ if Code.ensure_loaded?(Igniter) do
         doc: "Differential wheel velocity per radian per second of yaw rate"
       )
 
-      # Wheel velocity spent turning is velocity unavailable for staying upright,
-      # and the balance loop already saturates in some attempts. Straightening up
-      # is not worth falling over for.
+      # Velocity spent turning is velocity unavailable for staying upright, and
+      # straightening up is not worth falling over for.
       param(:limit,
         type: :float,
         default: 3.0,
@@ -396,13 +365,10 @@ if Code.ensure_loaded?(Igniter) do
         doc: "How much wheel velocity the heading may spend, in rad/s"
       )
 
-      # There is no magnetometer, so the heading integrates gyro bias at roughly
-      # 20 degrees a minute and the held heading has to follow it or the loop
-      # would wind on a standing correction and turn the robot in a slow circle.
-      #
-      # The trade this sets is the whole design: the robot corrects a disturbance
-      # only to the extent it happens faster than this, so short is
-      # drift-tolerant and forgetful, long is patient and slowly turns.
+      # No magnetometer, so the heading drifts and the held heading must follow
+      # it. The trade: a disturbance is corrected only to the extent it happens
+      # faster than this. Short is drift-tolerant and forgetful, long is patient
+      # and slowly turns.
       param(:tau,
         type: :float,
         default: 10.0,

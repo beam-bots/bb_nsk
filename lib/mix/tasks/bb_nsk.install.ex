@@ -303,60 +303,39 @@ if Code.ensure_loaded?(Igniter) do
           allowed_states([:idle])
         end
 
-        # There is no power button, and pulling the battery on a robot mid-write
-        # to its application partition is how a configuration goes missing.
-        #
         # Disarmed only: taking the operating system out from under a balancing
-        # robot drops it on the floor. `disarm` reaches every state the robot
-        # can get stuck in, so there is always a way through to here.
+        # robot drops it on the floor.
         command :poweroff do
           handler(BB.NSK.Command.Poweroff)
           allowed_states([:disarmed])
         end
       end
 
-      # From the CAD model, taking the wheel axis as the reference. The axis is
-      # 16mm above the bottom of the body and 8.6mm ahead of its back face, so
-      # the body's centre is 124/2 - 16 = 46mm above it and 20.7/2 - 8.6 =
-      # 1.75mm ahead of it.
+      # From the CAD model, measured against the wheel axis.
       @body_depth ~u(20.7 millimeter)
       @body_width ~u(99 millimeter)
       @body_height ~u(124 millimeter)
       @body_centre_ahead ~u(1.75 millimeter)
       @body_centre_above ~u(46 millimeter)
 
-      # Half of a 43mm wheel. The axis is 16mm above the bottom of the body, so
-      # the body clears the ground by 5.5mm — anything under a 32mm wheel would
-      # leave it resting on the ground with the wheels spinning in the air.
+      # Half of a 43mm wheel. Anything under 32mm leaves the body resting on the
+      # ground with the wheels spinning in the air.
       @wheel_radius ~u(21.5 millimeter)
 
-      # Weighed with the wheels off. They hang off their own links, and a
-      # wheel's mass sits on the axle where it makes no toppling torque, so the
-      # body alone is the pendulum.
+      # Weighed with the wheels off: their mass sits on the axle where it makes
+      # no toppling torque, so the body alone is the pendulum.
       @body_mass ~u(138 gram)
 
-      # The height is measured: 61.5mm above the bottom of the body, so 45.5mm
-      # above the wheel axis.
-      #
-      # The fore-aft is NOT measured. A knife edge said 8.1mm, and the robot
-      # would not balance anywhere near the -10.1 degrees that implies; -3
-      # degrees is a value found by trying values until one worked, and 2.4mm is
-      # what `x = z * tan(3)` makes of it — kept here only so the geometry and
-      # the setpoint tell the same story.
-      #
-      # Measuring it properly is available and nobody has done it: start the
-      # trim at zero on a flat floor, let it settle until the mean wheel command
-      # is about nothing, and read `setpoint + trim`. That angle is the centre
-      # of mass.
+      # The height is measured. The fore-aft is not: it is back-derived from the
+      # lean the robot actually balances at, so that the geometry and the
+      # `:balance` setpoint tell the same story. See `mix help bb_nsk.install`.
       @com_ahead ~u(2.4 millimeter)
       @com_above ~u(45.5 millimeter)
 
-      # A uniform box of the body's dimensions, about its centre of mass:
-      # m(y²+z²)/12 and so on for 138g and 20.7 x 99 x 124mm. The mass is not
-      # uniform — the panel is on the front and the battery is one lump — so
-      # these are an approximation, but not a negligible one: about the wheel
-      # axis the body's own pitch inertia is a third of the total, the rest
-      # being m*l².
+      # A uniform box of the body's dimensions about its centre of mass. An
+      # approximation — the panel is on the front and the battery is one lump —
+      # but not a negligible one: the body's own pitch inertia is a third of the
+      # total about the wheel axis.
       @body_ixx ~u(2895 gram_square_centimeter)
       @body_iyy ~u(1818 gram_square_centimeter)
       @body_izz ~u(1176 gram_square_centimeter)
@@ -364,18 +343,10 @@ if Code.ensure_loaded?(Igniter) do
 
       topology do
         # The robot is not bolted to anything, so the chain starts at the world
-        # and the body reaches it through the two ways it is free to move: the
-        # wheels carry it around the ground, and it leans about the wheel axis.
-        #
-        # Neither of those joints has an actuator. The lean is observable — it
-        # is what the IMU and its filter report — but the ground pose is not,
-        # because there are no encoders, so it stays at identity rather than
-        # being dead reckoned from what the wheels were asked to do.
-        #
-        # A tree cannot express the rolling constraint either. Wheel rotation
-        # and travel across the ground are physically coupled, but that is a
-        # loop, so odometry stays a calculation beside this rather than
-        # something forward kinematics gives us.
+        # and reaches the body through the two ways it can move: across the
+        # ground, and leaning about the wheel axis. Neither joint has an
+        # actuator, and with no encoders the ground pose stays at identity —
+        # only the lean is observable.
         link :world do
           joint :ground do
             type(:planar)
@@ -386,9 +357,8 @@ if Code.ensure_loaded?(Igniter) do
             link :ground_contact do
               joint :lean do
                 type(:revolute)
-                # Pitch about +Y, so leaning forwards is positive. The joint
-                # sits a wheel radius above the ground, because that is where
-                # the axis is.
+                # Pitch about +Y, so leaning forwards is positive, a wheel
+                # radius above the ground where the axis is.
                 axis(roll: ~u(-90 degree))
                 origin(z: @wheel_radius)
 

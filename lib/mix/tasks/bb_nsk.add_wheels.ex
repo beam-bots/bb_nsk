@@ -79,13 +79,8 @@ if Code.ensure_loaded?(Igniter) do
 
     defp motor_params do
       """
-      # Measured on the bench, unloaded: both wheels turn down to 0.3 rad/s of
-      # 31.4, so about 1%. It was 5% on the 500 rpm motors — more gearing
-      # multiplies motor torque against roughly the same output friction, so a
-      # slower motor breaks away at a lower duty rather than a higher one.
-      #
-      # Still tunable, because that was in the air and the figure on the ground
-      # under the robot's weight will be higher.
+      # Measured unloaded, so the figure under the robot's own weight will be
+      # higher — which is why it is tunable.
       param(:deadband,
         type: :float,
         default: 0.01,
@@ -96,19 +91,12 @@ if Code.ensure_loaded?(Igniter) do
       """
     end
 
-    # The track is NOT measured. It is what turns a difference in wheel speed
-    # into yaw, and the heading hold does not depend on it — the loop is
-    # feedback, so the yaw gain absorbs whatever the real track is and only the
-    # *sign* has to be right, which is confirmed on hardware. What the guess
-    # costs is that the gain has no physical meaning: it cannot be predicted
-    # from geometry, only swept.
+    # The track is NOT measured. The heading hold is feedback, so the yaw gain
+    # absorbs whatever the real track is and only the *sign* has to be right —
+    # what the guess costs is that the gain has no physical meaning.
     #
-    # A wheel's mass is on its own axis, so its centre of mass is the link's
-    # origin and needs no offset. The inertia is a uniform disc of 15g at a
-    # 21.5mm radius: mr²/2 about the axle it spins on, mr²/4 across. A tyred
-    # wheel carries more of its mass at the rim than a disc does, so the spin
-    # figure is a floor, and at three orders of magnitude below the body's it
-    # makes no odds either way.
+    # The wheel inertias are a uniform disc, three orders of magnitude below the
+    # body's and so of no consequence either way.
     defp wheel(:left) do
       wheel_body("left", "~u(55 millimeter)", forward: 3, reverse: 2, enable: "PE6")
     end

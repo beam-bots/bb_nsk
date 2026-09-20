@@ -124,18 +124,12 @@ if Code.ensure_loaded?(Igniter) do
 
     defp sampling_params do
       """
-      # The loop rate is the IMU's publish rate, and it is a parameter because
-      # the right value is a measurement rather than a derivation.
+      # This is the balance loop's rate. The robot falls with a 68ms time
+      # constant, so samples per fall matter more than they sound — see
+      # `mix help bb_nsk.add_imu`.
       #
-      # The timescale that matters is not the closed-loop oscillation — it is how
-      # fast the robot falls. An inverted pendulum diverges as `e^(t/tau)` with
-      # `tau = sqrt(L/g)`, and with the centre of mass 45.5mm above the axle that
-      # is 68ms. At 100 Hz that left 6.8 samples per fall time constant, which is
-      # where a recovery is won or lost; 200 Hz doubles it and costs nothing,
-      # since the chip was already sampling there and the rest was thrown away.
-      #
-      # The chip's ODR is 200 Hz, so publishing faster than that repeats samples
-      # — raising the rate above 200 wants the ODR raised deliberately with it.
+      # The chip's ODR is 200 Hz, so going above that repeats samples unless the
+      # ODR below is raised with it.
       param(:publish_rate,
         type: {:unit, :hertz},
         default: ~u(200 hertz),
@@ -149,13 +143,8 @@ if Code.ensure_loaded?(Igniter) do
     defp ahrs_params do
       """
       # The filter sits *inside* the control loop, so its lag is part of the
-      # plant the balance gains are tuned against, and changing one invalidates
-      # the tuning of the other. Which is why both are adjustable without a
-      # firmware build.
-      #
-      # `kp` of 0.4 is roughly Madgwick's 0.02 — the two libraries scale about
-      # twenty to one going by their defaults, which is an inference and exactly
-      # why these are parameters.
+      # plant the balance gains are tuned against — changing one invalidates the
+      # tuning of the other.
       param(:kp,
         type: :float,
         default: 0.4,
@@ -164,8 +153,7 @@ if Code.ensure_loaded?(Igniter) do
         doc: "How hard the accelerometer may pull the estimate. Small: it can't tell lean from acceleration"
       )
 
-      # Defaults to zero in the library, which is Madgwick's problem with
-      # different arithmetic, so it has to be set.
+      # Defaults to zero in the library, so it has to be set.
       param(:ki,
         type: :float,
         default: 0.005,
@@ -178,21 +166,14 @@ if Code.ensure_loaded?(Igniter) do
 
     defp imu_mount do
       """
-      # `BB.Sensor.BMI323` publishes in the chip's own axes and a `sensor` has no
-      # origin of its own — the link it hangs off is its frame — so the mounting
-      # is a link of its own, and everything downstream gets the transform from
-      # the kinematics rather than hard-coding a swap.
+      # The chip publishes in its own axes and a `sensor` has no origin — the
+      # link it hangs off is its frame — so the mounting is links of its own and
+      # everything downstream gets the transform from the kinematics.
       #
-      # The board stands upright across the front of the body, so the chip's +Z
-      # faces forwards, its +Y points at the floor and its +X to the robot's
-      # right. Read off the gravity vector in two attitudes rather than off the
-      # silkscreen: on its back the whole g lands on +Z, and on its wheels it
-      # lands on -Y. Those two fix the third, since the chip's frame is right
-      # handed.
-      #
-      # Measured on the robot: 45.5mm above the bottom of the body, on the
-      # centreline, 17mm back from the front face. Against the wheel axis that is
-      # 29.5mm up and 4.9mm behind it.
+      # **Two joints rather than one origin carrying both**, because
+      # `BB.Math.Transform.from_origin/1` composes the rotation before the
+      # translation: one origin with both would put the chip 29.5mm *forward* of
+      # the wheel axis instead of above it.
       joint :imu_mount_joint do
         type(:fixed)
         origin(x: ~u(-4.9 millimeter), z: ~u(29.5 millimeter))
@@ -203,9 +184,8 @@ if Code.ensure_loaded?(Igniter) do
             origin(pitch: ~u(90 degree), yaw: ~u(-90 degree))
 
             link :imu_link do
-              # `BB.Sensor.BMI323` stops rather than declining when the chip
-              # isn't there, which on the host would take the robot's supervision
-              # tree with it, so the IMU is only declared where the hardware is.
+              # The driver stops rather than declining when the chip isn't
+              # there, which on a host would take the supervision tree with it.
               if Mix.target() != :host do
                 sensor :imu,
                        {BB.Sensor.BMI323,
@@ -217,9 +197,8 @@ if Code.ensure_loaded?(Igniter) do
                         gyroscope_range: 500,
                         gyroscope_odr: 200,
                         publish_rate: param([:sampling, :publish_rate])} do
-                  # The BMI323 has no magnetometer, so it publishes an identity
-                  # orientation and something has to fuse acceleration and
-                  # angular velocity into a real one.
+                  # No magnetometer, so the chip publishes an identity
+                  # orientation and this fuses a real one.
                   estimator(
                     :orientation,
                     {BB.Estimator.Ahrs.Mahony, kp: param([:ahrs, :kp]), ki: param([:ahrs, :ki])}
