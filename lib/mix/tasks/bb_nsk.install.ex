@@ -311,36 +311,6 @@ if Code.ensure_loaded?(Igniter) do
         end
       end
 
-      # From the CAD model, measured against the wheel axis.
-      @body_depth ~u(20.7 millimeter)
-      @body_width ~u(99 millimeter)
-      @body_height ~u(124 millimeter)
-      @body_centre_ahead ~u(1.75 millimeter)
-      @body_centre_above ~u(46 millimeter)
-
-      # Half of a 43mm wheel. Anything under 32mm leaves the body resting on the
-      # ground with the wheels spinning in the air.
-      @wheel_radius ~u(21.5 millimeter)
-
-      # Weighed with the wheels off: their mass sits on the axle where it makes
-      # no toppling torque, so the body alone is the pendulum.
-      @body_mass ~u(138 gram)
-
-      # The height is measured. The fore-aft is not: it is back-derived from the
-      # lean the robot actually balances at, so that the geometry and the
-      # `:balance` setpoint tell the same story. See `mix help bb_nsk.install`.
-      @com_ahead ~u(2.4 millimeter)
-      @com_above ~u(45.5 millimeter)
-
-      # A uniform box of the body's dimensions about its centre of mass. An
-      # approximation — the panel is on the front and the battery is one lump —
-      # but not a negligible one: the body's own pitch inertia is a third of the
-      # total about the wheel axis.
-      @body_ixx ~u(2895 gram_square_centimeter)
-      @body_iyy ~u(1818 gram_square_centimeter)
-      @body_izz ~u(1176 gram_square_centimeter)
-      @no_inertia ~u(0 gram_square_centimeter)
-
       topology do
         # The robot is not bolted to anything, so the chain starts at the world
         # and reaches the body through the two ways it can move: across the
@@ -357,10 +327,12 @@ if Code.ensure_loaded?(Igniter) do
             link :ground_contact do
               joint :lean do
                 type(:revolute)
-                # Pitch about +Y, so leaning forwards is positive, a wheel
-                # radius above the ground where the axis is.
+                # Pitch about +Y, so leaning forwards is positive. The axis
+                # sits a wheel radius above the ground — half of a 43mm wheel,
+                # and anything under 32mm leaves the body resting on the floor
+                # with the wheels spinning in the air.
                 axis(roll: ~u(-90 degree))
-                origin(z: @wheel_radius)
+                origin(z: ~u(21.5 millimeter))
 
                 limit(
                   lower: ~u(-90 degree),
@@ -370,22 +342,36 @@ if Code.ensure_loaded?(Igniter) do
                 )
 
                 link :base_link do
+                  # From the CAD model, measured against the wheel axis.
                   visual do
-                    box(x: @body_depth, y: @body_width, z: @body_height)
-                    origin(x: @body_centre_ahead, z: @body_centre_above)
+                    box(x: ~u(20.7 millimeter), y: ~u(99 millimeter), z: ~u(124 millimeter))
+                    origin(x: ~u(1.75 millimeter), z: ~u(46 millimeter))
                   end
 
                   inertial do
-                    origin(x: @com_ahead, z: @com_above)
-                    mass(@body_mass)
+                    # The height is measured. The fore-aft is not: it is
+                    # back-derived from the lean the robot actually balances at,
+                    # so the geometry and the `:balance` setpoint tell the same
+                    # story. See `mix help bb_nsk.install`.
+                    origin(x: ~u(2.4 millimeter), z: ~u(45.5 millimeter))
 
+                    # Weighed with the wheels off: their mass sits on the axle
+                    # where it makes no toppling torque, so the body alone is
+                    # the pendulum.
+                    mass(~u(138 gram))
+
+                    # A uniform box of the body's dimensions about its centre of
+                    # mass. An approximation — the panel is on the front and the
+                    # battery is one lump — but not a negligible one: the body's
+                    # own pitch inertia is a third of the total about the wheel
+                    # axis.
                     inertia(
-                      ixx: @body_ixx,
-                      iyy: @body_iyy,
-                      izz: @body_izz,
-                      ixy: @no_inertia,
-                      ixz: @no_inertia,
-                      iyz: @no_inertia
+                      ixx: ~u(2895 gram_square_centimeter),
+                      iyy: ~u(1818 gram_square_centimeter),
+                      izz: ~u(1176 gram_square_centimeter),
+                      ixy: ~u(0 gram_square_centimeter),
+                      ixz: ~u(0 gram_square_centimeter),
+                      iyz: ~u(0 gram_square_centimeter)
                     )
                   end
                 end

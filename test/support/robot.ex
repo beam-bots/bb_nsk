@@ -238,76 +238,6 @@ defmodule BB.NSK.TestRobot do
     end
   end
 
-  # From the CAD model, taking the wheel axis as the reference. The axis is 16mm
-  # above the bottom of the body and 8.6mm ahead of its back face, so the body's
-  # centre is 124/2 - 16 = 46mm above it and 20.7/2 - 8.6 = 1.75mm ahead of it.
-  @body_depth ~u(20.7 millimeter)
-  @body_width ~u(99 millimeter)
-  @body_height ~u(124 millimeter)
-  @body_centre_ahead ~u(1.75 millimeter)
-  @body_centre_above ~u(46 millimeter)
-
-  # Half of a 43mm wheel. The axis is 16mm above the bottom of the body, so the
-  # body clears the ground by 5.5mm — anything under a 32mm wheel would leave it
-  # resting on the ground with the wheels spinning in the air.
-  @wheel_radius ~u(21.5 millimeter)
-
-  # NOT MEASURED. The track is what turns a difference in wheel speed into yaw.
-  # Defined as a pair so that changing it can't move one wheel and not the other.
-  #
-  # The heading hold does not depend on it: the loop is feedback, so the yaw gain
-  # absorbs whatever the real track is and only the *sign* has to be right, which
-  # is confirmed on hardware. What the guess costs is that the gain has no
-  # physical meaning — it cannot be predicted from geometry, only swept.
-  @left_wheel_y ~u(55 millimeter)
-  @right_wheel_y ~u(-55 millimeter)
-
-  # Measured on the robot: 45.5mm above the bottom of the body, on the
-  # centreline, 17mm back from the front face. Against the wheel axis that is
-  # 45.5 - 16 = 29.5mm up, and the front face is 20.7 - 8.6 = 12.1mm ahead of the
-  # axis, so 12.1 - 17 = 4.9mm behind it.
-  @imu_ahead ~u(-4.9 millimeter)
-  @imu_above ~u(29.5 millimeter)
-
-  # Weighed with the wheels off. They hang off their own links, and a wheel's
-  # mass sits on the axle where it makes no toppling torque, so the body alone
-  # is the pendulum.
-  @body_mass ~u(138 gram)
-  @wheel_mass ~u(15 gram)
-
-  # The height is measured: 61.5mm above the bottom of the body, so 45.5mm above
-  # the wheel axis.
-  #
-  # The fore-aft is NOT measured. A knife edge said 8.1mm, and the robot would
-  # not balance anywhere near the -10.1 degrees that implies; -3 degrees is a
-  # value found by trying values until one worked, and 2.4mm is what
-  # `x = z * tan(3)` makes of it — kept here only so the geometry and the
-  # setpoint tell the same story. Its real precision is unknown and probably no
-  # better than a degree, which is a millimetre.
-  #
-  # Measuring it properly is available and nobody has done it: start the trim at
-  # zero on a flat floor, let it settle until the mean wheel command is about
-  # nothing, and read `setpoint + trim`. That angle is the centre of mass.
-  @com_ahead ~u(2.4 millimeter)
-  @com_above ~u(45.5 millimeter)
-
-  # A uniform box of the body's dimensions, about its centre of mass: m(y²+z²)/12
-  # and so on for 138g and 20.7 x 99 x 124mm. The mass is not uniform — the panel
-  # is on the front and the battery is one lump — so these are an approximation,
-  # but not a negligible one: about the wheel axis the body's own pitch inertia
-  # is a third of the total, the rest being m*l².
-  @body_ixx ~u(2895 gram_square_centimeter)
-  @body_iyy ~u(1818 gram_square_centimeter)
-  @body_izz ~u(1176 gram_square_centimeter)
-
-  # A uniform disc of 15g at a 21.5mm radius: mr²/2 about the axle it spins on,
-  # mr²/4 across. A tyred wheel carries more of its mass at the rim than a disc
-  # does, so the spin figure is a floor, but at three orders of magnitude below
-  # the body's it makes no odds.
-  @wheel_spin_inertia ~u(34.67 gram_square_centimeter)
-  @wheel_transverse_inertia ~u(17.33 gram_square_centimeter)
-  @no_inertia ~u(0 gram_square_centimeter)
-
   topology do
     # The robot is not bolted to anything, so the chain starts at the world and
     # the body reaches it through the two ways it is free to move: the wheels
@@ -340,7 +270,7 @@ defmodule BB.NSK.TestRobot do
             # Pitch about +Y, so leaning forwards is positive. The joint sits a
             # wheel radius above the ground, because that is where the axis is.
             axis(roll: ~u(-90 degree))
-            origin(z: @wheel_radius)
+            origin(z: ~u(21.5 millimeter))
 
             limit(
               lower: ~u(-90 degree),
@@ -356,21 +286,21 @@ defmodule BB.NSK.TestRobot do
 
             link :base_link do
               visual do
-                box(x: @body_depth, y: @body_width, z: @body_height)
-                origin(x: @body_centre_ahead, z: @body_centre_above)
+                box(x: ~u(20.7 millimeter), y: ~u(99 millimeter), z: ~u(124 millimeter))
+                origin(x: ~u(1.75 millimeter), z: ~u(46 millimeter))
               end
 
               inertial do
-                origin(x: @com_ahead, z: @com_above)
-                mass(@body_mass)
+                origin(x: ~u(2.4 millimeter), z: ~u(45.5 millimeter))
+                mass(~u(138 gram))
 
                 inertia(
-                  ixx: @body_ixx,
-                  iyy: @body_iyy,
-                  izz: @body_izz,
-                  ixy: @no_inertia,
-                  ixz: @no_inertia,
-                  iyz: @no_inertia
+                  ixx: ~u(2895 gram_square_centimeter),
+                  iyy: ~u(1818 gram_square_centimeter),
+                  izz: ~u(1176 gram_square_centimeter),
+                  ixy: ~u(0 gram_square_centimeter),
+                  ixz: ~u(0 gram_square_centimeter),
+                  iyz: ~u(0 gram_square_centimeter)
                 )
               end
 
@@ -396,7 +326,7 @@ defmodule BB.NSK.TestRobot do
               # translation at once, which is the same answer either way round.
               joint :imu_mount_joint do
                 type(:fixed)
-                origin(x: @imu_ahead, z: @imu_above)
+                origin(x: ~u(-4.9 millimeter), z: ~u(29.5 millimeter))
 
                 link :imu_mount do
                   joint :imu_joint do
@@ -418,7 +348,7 @@ defmodule BB.NSK.TestRobot do
               joint :left_wheel_joint do
                 type(:continuous)
                 axis(roll: ~u(-90 degree))
-                origin(y: @left_wheel_y)
+                origin(y: ~u(55 millimeter))
 
                 limit(effort: ~u(0.2 newton_meter), velocity: ~u(20 radian_per_second))
 
@@ -435,15 +365,15 @@ defmodule BB.NSK.TestRobot do
                   # A wheel's mass is on its own axis, so its centre of mass is
                   # the link's origin and needs no offset.
                   inertial do
-                    mass(@wheel_mass)
+                    mass(~u(15 gram))
 
                     inertia(
-                      ixx: @wheel_transverse_inertia,
-                      iyy: @wheel_spin_inertia,
-                      izz: @wheel_transverse_inertia,
-                      ixy: @no_inertia,
-                      ixz: @no_inertia,
-                      iyz: @no_inertia
+                      ixx: ~u(17.33 gram_square_centimeter),
+                      iyy: ~u(34.67 gram_square_centimeter),
+                      izz: ~u(17.33 gram_square_centimeter),
+                      ixy: ~u(0 gram_square_centimeter),
+                      ixz: ~u(0 gram_square_centimeter),
+                      iyz: ~u(0 gram_square_centimeter)
                     )
                   end
                 end
@@ -452,7 +382,7 @@ defmodule BB.NSK.TestRobot do
               joint :right_wheel_joint do
                 type(:continuous)
                 axis(roll: ~u(-90 degree))
-                origin(y: @right_wheel_y)
+                origin(y: ~u(-55 millimeter))
 
                 limit(effort: ~u(0.2 newton_meter), velocity: ~u(20 radian_per_second))
 
@@ -467,15 +397,15 @@ defmodule BB.NSK.TestRobot do
 
                 link :right_wheel_link do
                   inertial do
-                    mass(@wheel_mass)
+                    mass(~u(15 gram))
 
                     inertia(
-                      ixx: @wheel_transverse_inertia,
-                      iyy: @wheel_spin_inertia,
-                      izz: @wheel_transverse_inertia,
-                      ixy: @no_inertia,
-                      ixz: @no_inertia,
-                      iyz: @no_inertia
+                      ixx: ~u(17.33 gram_square_centimeter),
+                      iyy: ~u(34.67 gram_square_centimeter),
+                      izz: ~u(17.33 gram_square_centimeter),
+                      ixy: ~u(0 gram_square_centimeter),
+                      ixz: ~u(0 gram_square_centimeter),
+                      iyz: ~u(0 gram_square_centimeter)
                     )
                   end
                 end

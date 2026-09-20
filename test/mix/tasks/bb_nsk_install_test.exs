@@ -124,10 +124,15 @@ defmodule Mix.Tasks.BbNsk.InstallTest do
       end
     end
 
-    test "gives base_link the measured geometry", %{igniter: igniter} do
+    # Values at their point of use rather than behind module attributes, so
+    # that reading the topology does not mean scrolling up to find out what a
+    # name stands for.
+    test "gives base_link the measured geometry, inline", %{igniter: igniter} do
       igniter
       |> assert_has_content("lib/my_bot/robot.ex", "link :base_link")
-      |> assert_has_content("lib/my_bot/robot.ex", "mass(@body_mass)")
+      |> assert_has_content("lib/my_bot/robot.ex", "mass(~u(138 gram))")
+      |> assert_has_content("lib/my_bot/robot.ex", "origin(z: ~u(21.5 millimeter))")
+      |> refute_has_content("lib/my_bot/robot.ex", "@body_")
     end
 
     # There is no power button on the board, so without this the only ways to
