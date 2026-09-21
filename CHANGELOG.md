@@ -10,6 +10,23 @@ See [Conventional Commits](Https://conventionalcommits.org) for commit guideline
 
 <!-- changelog -->
 
+## [v0.1.2](https://github.com/beam-bots/bb_nsk/compare/v0.1.1...v0.1.2) (2026-09-21)
+
+
+
+
+### Improvements:
+
+* put the measurements where they are used by James Harton
+
+* halve the comments in the generated robot by James Harton
+
+* keep simulated parameters in tmp, not _build by James Harton
+
+### Bug Fixes:
+
+* let a generated robot boot on a laptop by James Harton
+
 ## [v0.1.1](https://github.com/beam-bots/bb_nsk/compare/v0.1.0...v0.1.1) (2026-09-19)
 
 
