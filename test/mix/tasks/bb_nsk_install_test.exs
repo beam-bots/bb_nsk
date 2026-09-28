@@ -108,18 +108,21 @@ defmodule Mix.Tasks.BbNsk.InstallTest do
     # app, and `mix burn` has nothing to write to.
     test "adds the flashing tools", %{igniter: igniter} do
       igniter
-      |> assert_has_content("mix.exs", "protolux-electronics/nsk")
+      # Our forks until the two fixes are merged upstream.
+      |> assert_has_content("mix.exs", "jimsynz/nsk")
+      |> assert_has_content("mix.exs", "jimsynz/sunxi")
       # Host only, or the sunxi NIF would be cross-compiled into the firmware.
-      |> assert_has_content("mix.exs", ~r/nsk.*targets: :host/)
-      # Deliberately no `runtime: false`: it keeps `:req` out of the application
-      # list and `mix nsk.ums` then dies reaching for it.
-      |> refute_has_content("mix.exs", ~r/nsk.*runtime: false/)
+      |> assert_has_content("mix.exs", ~r|jimsynz/nsk.*?targets: :host|s)
+      |> assert_has_content("mix.exs", ~r|jimsynz/sunxi.*?targets: :host|s)
+      # `sunxi` comes in under `nsk` from hex, so our copy only wins with this.
+      |> assert_has_content("mix.exs", ~r|jimsynz/sunxi.*?override: true|s)
     end
 
     test "leaves them out on request" do
       nerves_project()
       |> Igniter.compose_task("bb_nsk.install", ["--no-flashing"])
-      |> refute_has_content("mix.exs", "protolux-electronics/nsk")
+      |> refute_has_content("mix.exs", "jimsynz/nsk")
+      |> refute_has_content("mix.exs", "jimsynz/sunxi")
     end
 
     test "adds the hardware access the wheels and the IMU need", %{igniter: igniter} do

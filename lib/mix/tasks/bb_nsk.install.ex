@@ -67,6 +67,9 @@ if Code.ensure_loaded?(Igniter) do
     the host — `--no-flashing` leaves it out if you would rather burn with the
     Nerves Desktop app or an SD writer.
 
+    `nsk` and `sunxi` come from our forks for now, which carry two fixes that
+    have not been merged upstream yet.
+
     ## Options
 
     * `--robot` - The robot module (defaults to `{AppPrefix}.Robot`).
@@ -93,13 +96,29 @@ if Code.ensure_loaded?(Igniter) do
     # over the cable that is already there, and a board that will not boot can
     # still be recovered.
     #
-    # `targets: :host` keeps it and the `sunxi` NIF underneath it out of the
-    # firmware entirely. **No `runtime: false`**, though Gus's README suggests
-    # it: that keeps `:nsk` and its dependency tree out of the application list,
-    # so `mix nsk.ums` dies on `unknown registry: Req.Finch` when it reaches for
-    # `Req` to download the loader. Once `nsk` starts its own applications this
-    # can have it back.
-    @flashing_deps [{:nsk, github: "protolux-electronics/nsk", targets: :host}]
+    # Both point at our forks rather than upstream. `nsk` needs to start `:req`
+    # itself before downloading the loader, or `runtime: false` leaves it
+    # reaching for a registry nobody started; `sunxi` needs to say so when
+    # `sunxi-fel` was never built, rather than failing later as a missing NIF.
+    # Both fixes are sitting in upstream pull requests — move these back when
+    # they land.
+    #
+    # `sunxi` arrives under `nsk` from hex, so reaching our copy takes an
+    # `override: true` and a direct dependency. `targets: :host` keeps the pair
+    # of them, and the NIF, out of the firmware entirely.
+    @flashing_deps [
+      {:nsk,
+       github: "jimsynz/nsk",
+       branch: "fix/start-req-for-downloads",
+       targets: :host,
+       runtime: false},
+      {:sunxi,
+       github: "jimsynz/sunxi",
+       branch: "fix/explain-missing-binary",
+       targets: :host,
+       runtime: false,
+       override: true}
+    ]
 
     @impl Igniter.Mix.Task
     def info(argv, _parent) do

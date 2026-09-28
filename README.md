@@ -120,6 +120,11 @@ on macOS, already present on most Linux distributions, untested on Windows.
 burn with the [Nerves Desktop app](https://github.com/nerves-project) or an SD
 writer.
 
+Both come from our forks for the moment. `nsk` needs to start `:req` before it
+downloads the loader, and `sunxi` needs to say so when `sunxi-fel` was never
+built instead of failing later as a missing NIF. Both fixes are waiting on
+upstream.
+
 **`nsk.ums` is not confirmed on this hardware.** `nsk.fel` is — the board
 enumerates in FEL and the loader transfers — but in testing no mass-storage
 device appeared afterwards. If `mix burn` finds nothing to write to, that is
