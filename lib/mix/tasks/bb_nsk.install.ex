@@ -50,9 +50,27 @@ if Code.ensure_loaded?(Igniter) do
     mix igniter.install bb_nsk
     ```
 
+    ## Flashing
+
+    It also adds [`nsk`](https://github.com/protolux-electronics/nsk), which
+    turns getting firmware onto the board into two mix tasks over the cable that
+    is already attached:
+
+    ```bash
+    mix do nsk.fel + nsk.ums
+    MIX_TARGET=trellis mix burn
+    ```
+
+    The reset is a hardware one over the CH340's control lines, so it recovers a
+    board that will not boot as readily as one that will. It builds sunxi-tools
+    from source, though, so it needs libusb, libfdt, zlib, pkg-config and dtc on
+    the host — `--no-flashing` leaves it out if you would rather burn with the
+    Nerves Desktop app or an SD writer.
+
     ## Options
 
     * `--robot` - The robot module (defaults to `{AppPrefix}.Robot`).
+    * `--no-flashing` - Leave out `nsk` and its system dependencies.
     """
 
     use Igniter.Mix.Task
@@ -64,18 +82,41 @@ if Code.ensure_loaded?(Igniter) do
 
     @provisioning_path "config/provisioning.conf"
 
+    @deps [
+      {:circuits_gpio, "~> 2.1"},
+      {:circuits_i2c, "~> 2.1"},
+      {:phx_install, "~> 0.1", only: [:dev, :test], runtime: false}
+    ]
+
+    # `nsk` gives `mix nsk.fel` and `mix nsk.ums`, which put the board into FEL
+    # over its serial link and then present it as a disk — so `mix burn` works
+    # over the cable that is already there, and a board that will not boot can
+    # still be recovered.
+    #
+    # `targets: :host` keeps it and the `sunxi` NIF underneath it out of the
+    # firmware entirely. **No `runtime: false`**, though Gus's README suggests
+    # it: that keeps `:nsk` and its dependency tree out of the application list,
+    # so `mix nsk.ums` dies on `unknown registry: Req.Finch` when it reaches for
+    # `Req` to download the loader. Once `nsk` starts its own applications this
+    # can have it back.
+    @flashing_deps [{:nsk, github: "protolux-electronics/nsk", targets: :host}]
+
     @impl Igniter.Mix.Task
-    def info(_argv, _parent) do
+    def info(argv, _parent) do
       %Igniter.Mix.Task.Info{
         composes: ["bb.install", "bb_parameter_store_cubdb.install"],
-        # Also in `@deps` below. `adds_deps:` fetches during the run but does not
-        # write to the consumer's `mix.exs`; `Deps.add_dep/2` writes but does not
-        # fetch. Both, and the dependency is there and usable without anyone
-        # having to run `mix deps.get` in between.
-        adds_deps: [
-          {:phx_install, "~> 0.1", only: [:dev, :test], runtime: false}
-        ],
-        schema: [robot: :string],
+        # Each of these is in `@deps` too. `adds_deps:` fetches during the run
+        # but does not write to the consumer's `mix.exs`; `Deps.add_dep/2` writes
+        # but does not fetch. Both, and the dependency is there and usable
+        # without anyone having to run `mix deps.get` in between.
+        #
+        # Read off `argv` rather than parsed options because `info/1` is what
+        # produces the schema those are parsed against.
+        adds_deps:
+          [{:phx_install, "~> 0.1", only: [:dev, :test], runtime: false}] ++
+            if("--no-flashing" in argv, do: [], else: @flashing_deps),
+        schema: [robot: :string, flashing: :boolean],
+        defaults: [flashing: true],
         aliases: [r: :robot]
       }
     end
@@ -107,6 +148,7 @@ if Code.ensure_loaded?(Igniter) do
       |> add_deps()
       |> add_nerves_system()
       |> write_provisioning()
+      |> flashing_notice()
     end
 
     # Igniter can't scaffold a Nerves project and shouldn't pretend to — the
@@ -155,11 +197,6 @@ if Code.ensure_loaded?(Igniter) do
     # go in with `Deps.add_dep/2`, because `adds_deps:` fetches without writing
     # to `mix.exs` and a project that only builds while `bb_nsk` is a path
     # dependency is not a project that works.
-    @deps [
-      {:circuits_gpio, "~> 2.1"},
-      {:circuits_i2c, "~> 2.1"},
-      {:phx_install, "~> 0.1", only: [:dev, :test], runtime: false}
-    ]
 
     # Nothing in this package can work the robot's name out for itself — its own
     # OTP application is `:bb_nsk`, so a robot asking gets the library's name
@@ -177,7 +214,48 @@ if Code.ensure_loaded?(Igniter) do
       )
     end
 
-    defp add_deps(igniter), do: Enum.reduce(@deps, igniter, &Deps.add_dep(&2, &1))
+    defp add_deps(igniter) do
+      deps = @deps ++ if(flashing?(igniter), do: @flashing_deps, else: [])
+
+      Enum.reduce(deps, igniter, &Deps.add_dep(&2, &1))
+    end
+
+    defp flashing?(igniter), do: Keyword.get(igniter.args.options, :flashing, true)
+
+    # `sunxi` builds sunxi-tools from source, so these have to be there before
+    # anything compiles on the host — not just before flashing. Said up front
+    # because the failure otherwise arrives as a C compiler error in the middle
+    # of `mix deps.compile`, which is a long way from anything the reader asked
+    # for.
+    defp flashing_notice(igniter) do
+      if flashing?(igniter) do
+        Igniter.add_notice(igniter, """
+        `nsk` was added, which gives you:
+
+            mix do nsk.fel + nsk.ums
+            MIX_TARGET=trellis mix burn
+
+        `nsk.fel` resets the board into FEL over its serial link and `nsk.ums`
+        presents it as a disk, so nothing has to be opened up. It also recovers a
+        board that will not boot, since the reset is a hardware one.
+
+        It builds sunxi-tools from source and needs these first, on the host:
+
+            macOS   brew install libusb dtc zlib pkg-config
+            Debian  sudo apt-get install libusb-1.0-0-dev libfdt-dev \\
+                      zlib1g-dev pkg-config device-tree-compiler
+
+        plus the CH340 serial driver — `brew install --cask
+        wch-ch34x-usb-serial-driver` on macOS, already present on most Linux.
+        Untested on Windows.
+
+        Don't want any of that? `mix bb_nsk.install --no-flashing`, and burn with
+        the Nerves Desktop app or an SD writer instead.
+        """)
+      else
+        igniter
+      end
+    end
 
     # `bb_parameter_store_cubdb.install` picks the data directory when it runs,
     # and on a Nerves project it picks `/root` — the application data partition,

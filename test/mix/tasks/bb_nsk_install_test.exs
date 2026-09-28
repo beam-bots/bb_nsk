@@ -104,6 +104,24 @@ defmodule Mix.Tasks.BbNsk.InstallTest do
       assert_has_content(igniter, "mix.exs", ~r/phx_install.*only: \[:dev, :test\]/)
     end
 
+    # Without `nsk` the only way onto the board is an SD writer or the desktop
+    # app, and `mix burn` has nothing to write to.
+    test "adds the flashing tools", %{igniter: igniter} do
+      igniter
+      |> assert_has_content("mix.exs", "protolux-electronics/nsk")
+      # Host only, or the sunxi NIF would be cross-compiled into the firmware.
+      |> assert_has_content("mix.exs", ~r/nsk.*targets: :host/)
+      # Deliberately no `runtime: false`: it keeps `:req` out of the application
+      # list and `mix nsk.ums` then dies reaching for it.
+      |> refute_has_content("mix.exs", ~r/nsk.*runtime: false/)
+    end
+
+    test "leaves them out on request" do
+      nerves_project()
+      |> Igniter.compose_task("bb_nsk.install", ["--no-flashing"])
+      |> refute_has_content("mix.exs", "protolux-electronics/nsk")
+    end
+
     test "adds the hardware access the wheels and the IMU need", %{igniter: igniter} do
       igniter
       |> assert_has_content("mix.exs", "circuits_gpio")

@@ -50,6 +50,7 @@ Build and burn:
 
 ```bash
 MIX_TARGET=trellis mix firmware
+mix do nsk.fel + nsk.ums
 MIX_TARGET=trellis mix burn
 ```
 
@@ -93,6 +94,36 @@ Every `add_*` task takes `--robot`, and every one is safe to run twice.
 
 `bb_nsk.add_display` and `bb_nsk.add_environment_sensor` add git dependencies —
 `eink`, `emerge` and `hts221` are prototype drivers not yet on Hex.
+
+## Flashing over USB
+
+`bb_nsk.install` adds [`nsk`](https://github.com/protolux-electronics/nsk), which
+gets the board ready for `mix burn` over the cable that is already attached:
+`nsk.fel` resets it into FEL over the CH340's control lines, and `nsk.ums`
+loads a U-Boot that presents its storage as a disk.
+
+The reset is a hardware one, so it recovers a board that will not boot as
+readily as one that will. After a FEL session the board needs a power cycle,
+since the reset holds BOOT throughout.
+
+It builds sunxi-tools from source, so the host needs:
+
+```sh
+brew install libusb dtc zlib pkg-config                                 # macOS
+sudo apt-get install libusb-1.0-0-dev libfdt-dev zlib1g-dev \
+  pkg-config device-tree-compiler                                       # Debian
+```
+
+plus the CH340 serial driver — `brew install --cask wch-ch34x-usb-serial-driver`
+on macOS, already present on most Linux distributions, untested on Windows.
+`mix bb_nsk.install --no-flashing` leaves the whole lot out if you would rather
+burn with the [Nerves Desktop app](https://github.com/nerves-project) or an SD
+writer.
+
+**`nsk.ums` is not confirmed on this hardware.** `nsk.fel` is — the board
+enumerates in FEL and the loader transfers — but in testing no mass-storage
+device appeared afterwards. If `mix burn` finds nothing to write to, that is
+where to look.
 
 ## Known limitations
 
