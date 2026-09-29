@@ -10,6 +10,17 @@ See [Conventional Commits](Https://conventionalcommits.org) for commit guideline
 
 <!-- changelog -->
 
+## [v0.1.3](https://github.com/beam-bots/bb_nsk/compare/v0.1.2...v0.1.3) (2026-09-29)
+
+
+
+
+### Improvements:
+
+* point the flashing tools at our forks by James Harton
+
+* add Gus' `nsk` flashing tooling to the installer by James Harton
+
 ## [v0.1.2](https://github.com/beam-bots/bb_nsk/compare/v0.1.1...v0.1.2) (2026-09-21)
 
 
