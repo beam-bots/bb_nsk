@@ -125,11 +125,6 @@ downloads the loader, and `sunxi` needs to say so when `sunxi-fel` was never
 built instead of failing later as a missing NIF. Both fixes are waiting on
 upstream.
 
-**`nsk.ums` is not confirmed on this hardware.** `nsk.fel` is — the board
-enumerates in FEL and the loader transfers — but in testing no mass-storage
-device appeared afterwards. If `mix burn` finds nothing to write to, that is
-where to look.
-
 ## Known limitations
 
 - **Simulation is bare.** `SIMULATE=1 iex -S mix` boots on a laptop and the
