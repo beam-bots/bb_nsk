@@ -139,7 +139,6 @@ defmodule BB.NSK.MixProject do
       # a diverged-dependencies error.
       {:igniter, "~> 0.7 and >= 0.7.3", only: [:dev, :test], runtime: false},
       {:mimic, "~> 2.0", only: :test},
-      {:mix_audit, "~> 2.1", only: [:dev, :test], runtime: false},
       # `bb_nsk.add_web` composes `bb_liveview.install`, which composes the five
       # `phx.install.*` subtasks that put Phoenix into a project that has none.
       # `bb_liveview` declares `phx_install` via `adds_deps:`, which fetches it
