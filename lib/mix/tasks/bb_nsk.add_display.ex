@@ -73,13 +73,10 @@ if Code.ensure_loaded?(Igniter) do
       {:eink, git: "https://github.com/emerge-elixir/eink.git", branch: "feat/imperative-gray2"},
       {:emerge, "== 0.4.0-beta.1"},
       {:video_interop, "~> 0.1.1"}
-      # `rustler` deliberately absent. It was here so that Emerge's NIF could be
-      # built from source when diagnosing the precompiled one — which this board
-      # never needs, since 0.4 publishes an `armv7-unknown-linux-gnueabihf`
-      # artefact — and pinning it to `~> 0.38` put it in conflict with
-      # `igniter_js`, which wants `~> 0.36.2`. A diagnostic aid is not worth a
-      # dependency that cannot be resolved; add it by hand for the afternoon you
-      # need it.
+      # `rustler` belongs to `bb_nsk.install`, which adds it for every project
+      # rather than only the ones that take a panel. Emerge publishes an
+      # `armv7-unknown-linux-gnueabihf` artefact, so the board itself does not
+      # build from source — a macOS host has no artefact at all and does.
     ]
 
     @impl Igniter.Mix.Task

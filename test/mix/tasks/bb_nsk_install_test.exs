@@ -104,6 +104,17 @@ defmodule Mix.Tasks.BbNsk.InstallTest do
       assert_has_content(igniter, "mix.exs", ~r/phx_install.*only: \[:dev, :test\]/)
     end
 
+    # `rustler_precompiled` asks for `rustler` whenever the machine it is on has
+    # no published artefact — a macOS host for `emerge`, a trellis target for
+    # `ex_ratatui`. Both mark it optional, so nothing installs it for us and the
+    # build stops dead.
+    test "adds rustler, so a NIF with no artefact can still be built", %{igniter: igniter} do
+      igniter
+      |> assert_has_content("mix.exs", ~r/rustler.*optional: true/)
+      # Unpinned on purpose: the crate's own bound decides the version.
+      |> assert_has_content("mix.exs", ~r/rustler, ">= 0\.0\.0"/)
+    end
+
     # Without `nsk` the only way onto the board is an SD writer or the desktop
     # app, and `mix burn` has nothing to write to.
     test "adds the flashing tools", %{igniter: igniter} do

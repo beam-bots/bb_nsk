@@ -85,10 +85,25 @@ if Code.ensure_loaded?(Igniter) do
 
     @provisioning_path "config/provisioning.conf"
 
+    # `rustler` so that a NIF with no artefact for the machine in front of you
+    # can still be built. `rustler_precompiled` only reaches for it in that
+    # case, which is why both `emerge` and `ex_ratatui` mark it `optional: true`
+    # — and an optional dependency is never installed on your behalf, so the
+    # build stops with "Rustler dependency is needed to force the build".
+    #
+    # There is a hole on each side. `emerge` publishes Linux artefacts only, so
+    # every macOS host builds from source; `ex_ratatui`, under `bb_tui`,
+    # publishes no `armv7` one, so every trellis build does. Both were hit at a
+    # workshop.
+    #
+    # `>= 0.0.0` rather than a pin: the version that matters is whatever the
+    # crate's own `rustler` bound asks for, and pinning here only invents
+    # conflicts with the next package that wants a different one.
     @deps [
       {:circuits_gpio, "~> 2.1"},
       {:circuits_i2c, "~> 2.1"},
-      {:phx_install, "~> 0.1", only: [:dev, :test], runtime: false}
+      {:phx_install, "~> 0.1", only: [:dev, :test], runtime: false},
+      {:rustler, ">= 0.0.0", optional: true}
     ]
 
     # `nsk` gives `mix nsk.fel` and `mix nsk.ums`, which put the board into FEL

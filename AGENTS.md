@@ -140,6 +140,34 @@ Learned the hard way, and worth not rediscovering:
   `bb_nsk.restore_nifs` are ordinary Mix tasks, so the aliases are plain strings.
   That is also what a person reading the `mix.exs` would rather see.
 
+### Precompiled NIFs, and the artefacts that are missing
+
+`bb_nsk.install` adds `{:rustler, ">= 0.0.0", optional: true}` so that a NIF
+with no published artefact for the machine in front of you can still be built.
+`rustler_precompiled` only asks for `rustler` in that case, which is why every
+crate marks it optional — and an optional dependency is never installed on
+anyone's behalf, so without this the build stops at "Rustler dependency is
+needed to force the build".
+
+The coverage has a hole on each side, and a workshop found both:
+
+- **`emerge` publishes Linux artefacts only** — `x86_64`, `aarch64`, `armv7`
+  and `riscv64`, gnu and musl, in both `0.4.0-beta.1` and `0.4.0`. There is no
+  `apple-darwin` of any variant, so every macOS host builds Skia from source
+  while every Linux host quietly uses `x86_64-unknown-linux-gnu--raster`. That
+  asymmetry is why it looks intermittent.
+- **`ex_ratatui`, under `bb_tui`, publishes no `armv7`** — it has both Apple
+  targets, so it is fine on a laptop and forces a source build for trellis.
+
+Adding `rustler` makes those builds possible, not fast: a from-source Skia
+needs a Rust toolchain and a long wait. The cheaper fix for the macOS half
+would be scoping `emerge` and `eink` to the target, which the display stack is
+already guarded for — `Viewport` and `FrameSink` sit behind
+`Code.ensure_loaded?(Emerge)` and `Display.Supervisor` skips them when absent.
+
+Pin the constraint at `>= 0.0.0`. The version that matters is whatever the
+crate's own `rustler` bound asks for, and pinning here only invents conflicts.
+
 ### Assets
 
 A Nerves release is assembled by `mix firmware`, which has no idea Phoenix is
