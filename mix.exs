@@ -9,7 +9,7 @@ defmodule BB.NSK.MixProject do
   Beam Bots board support for the Nerves Starter Kit and its Balance Bot add-on.
   """
 
-  @version "0.1.3"
+  @version "0.1.4"
 
   def project do
     [
