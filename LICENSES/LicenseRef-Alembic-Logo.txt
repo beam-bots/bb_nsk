@@ -1,0 +1,8 @@
+Copyright Alembic. All rights reserved.
+
+The Alembic logo is a trademark of Alembic, reproduced on the closing slide of
+the workshop deck to acknowledge the author's employer. It is not covered by
+this repository's licence.
+
+No permission is granted to reuse the logo. Enquiries should be directed to
+Alembic, at https://alembic.com.au.

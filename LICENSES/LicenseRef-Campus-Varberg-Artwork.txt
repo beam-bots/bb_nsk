@@ -1,0 +1,12 @@
+Copyright Campus Varberg and Tech Arena Varberg. All rights reserved.
+
+The welcome artwork on the opening slide of the workshop deck was supplied by
+Campus Varberg, who hosted the Goatmire 2026 balance bot workshop, and is
+reproduced here with their permission as part of that deck. It is not covered
+by this repository's licence.
+
+The artwork also carries the emblem of the European Union and the mark of
+Region Halland, which remain the property of their respective owners.
+
+No permission is granted to reuse this artwork outside the workshop deck.
+Enquiries should be directed to Campus Varberg.

@@ -1,0 +1,581 @@
+/* @theme workshop */
+/* @auto-scaling true */
+
+/*
+ * A workshop deck, not a talk deck. The palette is the robot's own: the panel is
+ * one bit deep, so the base is ink on paper, and the step colours are the ones
+ * the NeoPixels use for the safety state the step is about.
+ *
+ * Slides here are read at a glance by somebody mid-task who has lost the thread,
+ * so type is large, prose is short, and every step has a `wall` slide meant to be
+ * left up while people work.
+ */
+
+@import url('https://fonts.googleapis.com/css2?family=Fira+Code:wght@400;500;600;700&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Montserrat:wght@400;500;600;700;800&display=swap');
+
+:root {
+  --paper: #f4f1ea;
+  --ink: #1a1a1a;
+  --faint: rgba(26, 26, 26, 0.55);
+  --rule: rgba(26, 26, 26, 0.22);
+
+  /* The safety states, as the NeoPixels paint them. */
+  --disarmed: #2f5fa8;
+  --armed: #2e7d4f;
+  --tuning: #c07c0a;
+  --fallen: #a83232;
+}
+
+section {
+  background-color: var(--paper);
+  color: var(--ink);
+  font-family: 'Montserrat', 'Helvetica Neue', Helvetica, Arial, sans-serif;
+  font-size: 22pt;
+  font-weight: 500;
+  padding: 64px 70px 104px;
+  letter-spacing: -0.005em;
+}
+
+p, ul, ol { line-height: 1.5; }
+li + li { margin-top: 0.35em; }
+strong { font-weight: 700; }
+em { font-style: normal; border-bottom: 2px solid var(--rule); }
+
+h1 {
+  font-size: 42pt;
+  font-weight: 800;
+  line-height: 1.08;
+  margin: 0 0 0.5em;
+  letter-spacing: -0.02em;
+}
+
+h2 {
+  font-size: 30pt;
+  font-weight: 700;
+  margin: 0 0 0.4em;
+}
+
+h3 {
+  font-family: 'Fira Code', monospace;
+  font-size: 17pt;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.14em;
+  color: var(--faint);
+  margin: 0 0 0.6em;
+}
+
+a { color: inherit; text-decoration: underline; text-decoration-thickness: 2px; }
+
+/* ---------- progress rail ---------------------------------------------------
+ * Four hours. `s1`..`s4` on a slide fills the rail that far, so anybody looking
+ * up mid-task can see where the group is. Drawn on ::before because Marp owns
+ * ::after for pagination.
+ */
+
+section::before {
+  content: '';
+  position: absolute;
+  left: 70px;
+  right: 70px;
+  bottom: 40px;
+  height: 6px;
+  background-image:
+    repeating-linear-gradient(to right, transparent 0 calc(25% - 2px), var(--paper) calc(25% - 2px) 25%),
+    linear-gradient(to right, var(--ink) 0 var(--progress, 0%), var(--rule) var(--progress, 0%) 100%);
+  background-repeat: no-repeat;
+}
+
+section.s0 { --progress: 0%; }
+section.s1 { --progress: 25%; }
+section.s2 { --progress: 50%; }
+section.s3 { --progress: 75%; }
+section.s4 { --progress: 100%; }
+
+section.norail::before { content: none; }
+
+/* ---------- chrome ---------------------------------------------------------
+ * Authored per slide: <div class="chrome">STEP 3 · WHY BALANCING IS HARD</div>
+ */
+
+.chrome {
+  position: absolute;
+  top: 34px;
+  left: 70px;
+  right: 70px;
+  display: flex;
+  justify-content: space-between;
+  font-family: 'Fira Code', monospace;
+  font-size: 15pt;
+  font-weight: 500;
+  text-transform: uppercase;
+  letter-spacing: 0.16em;
+  color: var(--faint);
+  border-bottom: 2px solid var(--rule);
+  padding-bottom: 10px;
+}
+
+section:has(.chrome) { padding-top: 118px; }
+
+/* ---------- title ---------------------------------------------------------- */
+
+section.title {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+}
+
+section.title h1 { font-size: 68pt; margin-bottom: 0.15em; }
+section.title h2 { font-size: 26pt; font-weight: 500; color: var(--faint); }
+
+/* ---------- step opener ----------------------------------------------------
+ * A full colour field in the state the step is about. Big number, big name, one
+ * line saying what you will understand by the end of it.
+ */
+
+section.step {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  background-color: var(--disarmed);
+  color: var(--paper);
+}
+
+section.step.armed { background-color: var(--armed); }
+section.step.tuning { background-color: var(--tuning); }
+section.step.fallen { background-color: var(--fallen); }
+
+section.step h3 { color: rgba(244, 241, 234, 0.7); font-size: 20pt; }
+section.step h1 { font-size: 62pt; margin-bottom: 0.3em; }
+section.step p { font-size: 26pt; max-width: 28em; color: rgba(244, 241, 234, 0.88); }
+section.step::before { display: none; }
+
+/* ---------- concept -------------------------------------------------------- */
+
+section.concept h1 { max-width: 24em; }
+section.concept.big h1 { font-size: 54pt; }
+section.concept ul { font-size: 24pt; }
+
+/* Columns are explicit <div>s. Auto-placement would put a heading in one column
+ * and its own list in the other, which is worse than no columns at all. */
+section.two {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  column-gap: 56px;
+  row-gap: 0;
+  align-content: start;
+}
+
+section.two h1,
+section.two > p:last-child { grid-column: 1 / -1; }
+
+/* A trailing line under both columns, for the one item that doesn't belong to
+ * either of them. */
+section.two > p:last-child { margin: 0.3em 0 0; }
+section.two > div > *:first-child { margin-top: 0; }
+section.two ul { font-size: 22pt; }
+
+section.diagram {
+  display: grid;
+  grid-template-columns: 1fr 1.3fr;
+  gap: 56px;
+  align-items: center;
+}
+
+section.diagram h1 { font-size: 38pt; margin: 0; }
+section.diagram img { width: 100%; }
+
+/* ---------- do this -------------------------------------------------------
+ * One command, big enough to read from the back, and what should happen.
+ */
+
+.cmd {
+  font-family: 'Fira Code', monospace;
+  font-size: 34pt;
+  font-weight: 600;
+  background: var(--ink);
+  color: var(--paper);
+  padding: 0.5em 0.7em;
+  display: block;
+  margin: 0.3em 0 0.8em;
+  overflow-wrap: anywhere;
+}
+
+.cmd.small { font-size: 24pt; }
+
+.expect,
+.otherwise {
+  border-left: 6px solid var(--rule);
+  padding: 0.1em 0 0.1em 24px;
+  font-size: 21pt;
+  margin: 0.5em 0;
+}
+
+.expect { border-left-color: var(--armed); }
+.otherwise { border-left-color: var(--fallen); }
+
+.expect h3,
+.otherwise h3 { margin-bottom: 0.25em; }
+
+/* ---------- checkpoint ---------------------------------------------------- */
+
+section.checkpoint { background-color: #eae6dc; }
+section.checkpoint ul { list-style: none; padding-left: 0; font-size: 25pt; }
+
+section.checkpoint li::before {
+  content: '☐';
+  font-family: 'Fira Code', monospace;
+  margin-right: 0.5em;
+  color: var(--faint);
+}
+
+/* ---------- wall ----------------------------------------------------------
+ * Left on the projector for the twenty minutes people are heads-down. Whatever
+ * somebody needs to un-stick themselves without asking.
+ */
+
+section.wall {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  background-color: var(--ink);
+  color: var(--paper);
+  text-align: center;
+}
+
+section.wall h3 { color: rgba(244, 241, 234, 0.6); letter-spacing: 0.2em; margin-bottom: 0.4em; }
+section.wall h1 { font-size: 34pt; margin-bottom: 0.6em; }
+
+section.wall .cmd {
+  background: var(--paper);
+  color: var(--ink);
+  font-size: 30pt;
+  text-align: center;
+  margin: 0.25em 0;
+}
+
+section.wall .cmd.small { font-size: 21pt; }
+section.wall p { font-size: 20pt; color: rgba(244, 241, 234, 0.75); margin: 0.7em 0; }
+section.wall::before { display: none; }
+
+/* A run of commands reads as a terminal session rather than as a stack of
+ * separate buttons, and fits where five `.cmd` blocks would not. */
+section.wall pre {
+  background: var(--paper);
+  color: var(--ink);
+  border: none;
+  display: inline-block;
+  text-align: left;
+  font-size: 22pt;
+  line-height: 1.45;
+  padding: 0.7em 1em;
+  margin: 0.3em 0 0.5em;
+}
+
+/* ---------- warn ---------------------------------------------------------- */
+
+section.warn {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  background-color: var(--fallen);
+  color: var(--paper);
+}
+
+section.warn h1 { font-size: 54pt; max-width: 26em; }
+section.warn p { font-size: 26pt; color: rgba(244, 241, 234, 0.9); max-width: 30em; }
+section.warn h3 { color: rgba(244, 241, 234, 0.7); }
+section.warn::before { display: none; }
+
+/* ---------- assembly ------------------------------------------------------
+ * Instruction-manual register: a numeral, a diagram, and as few words as the
+ * step can be done with.
+ */
+
+/* Instructions on the left, drawing on the right. The Onshape exports run from
+ * 1.6:1 landscape to 1:2.3 portrait, so the image is height-capped and centred
+ * rather than stretched to a column width — a tall one would otherwise push the
+ * text off the slide. */
+/* The drawing is positioned rather than laid out. As a grid item spanning every
+ * row it coupled its own height to the instruction text's, and a tall export
+ * pushed the numeral off the top of the slide. Out of flow it just centres in
+ * the space the text column reserves, whatever either one's height. */
+section.assembly {
+  display: block;
+  padding-right: 570px;
+}
+
+section.assembly img.shot {
+  position: absolute;
+  right: 70px;
+  top: 50%;
+  transform: translateY(-50%);
+  max-height: 560px;
+  max-width: 480px;
+  width: auto;
+  object-fit: contain;
+}
+
+section.assembly .num {
+  font-family: 'Fira Code', monospace;
+  font-size: 30pt;
+  font-weight: 700;
+  line-height: 1;
+  color: var(--ink);
+  border-top: 6px solid var(--ink);
+  padding-top: 10px;
+  margin: 0 0 0.3em;
+  display: inline-block;
+}
+
+section.assembly h1 { font-size: 30pt; margin-bottom: 0.45em; line-height: 1.12; }
+section.assembly p { font-size: 19pt; margin: 0.4em 0; }
+
+/* Ordered, because these are actions in sequence rather than things to bear in
+ * mind. The sub-numbers sitting under the big step numeral is the usual
+ * instruction-manual arrangement. */
+section.assembly ol,
+section.assembly ul { font-size: 19pt; line-height: 1.4; padding-left: 1.4em; }
+section.assembly li + li { margin-top: 0.5em; }
+section.assembly ol li::marker { font-family: 'Fira Code', monospace; font-weight: 600; }
+
+/* Asides, usable on any slide. `note` is something true that isn.t an action —
+ * usually there to stop somebody helpfully undoing it. `caution` is how the
+ * step breaks a part, in full ink rather than the note.s grey, because a damage
+ * warning is the last thing that should be de-emphasised. `danger` is how it
+ * hurts a person, and is filled rather than ruled so it cannot read as one more
+ * thing to be careful of.
+ */
+p.note {
+  font-size: 17pt;
+  color: var(--faint);
+  border-left: 4px solid var(--rule);
+  padding-left: 18px;
+  margin-top: 1em;
+}
+
+p.caution {
+  font-size: 18pt;
+  color: var(--ink);
+  border-left: 5px solid var(--fallen);
+  padding-left: 18px;
+  margin-top: 1em;
+}
+
+p.danger {
+  font-size: 17pt;
+  background: var(--fallen);
+  color: var(--paper);
+  padding: 0.7em 0.9em;
+  margin-top: 1.1em;
+  line-height: 1.4;
+}
+
+/* A drawing that has to fill the slide to be legible — the two-motor zip-tie
+ * step, where eight callouts sit in the corners. */
+section.assembly.wide { padding-right: 640px; }
+section.assembly.wide img.shot { max-height: 610px; max-width: 550px; }
+
+/* A step long enough to want two slides carries the same numeral on both, with
+ * the second marked as a continuation, so the slide count never disagrees with
+ * the step numbers people are calling out to each other. */
+section.assembly .num .cont {
+  font-size: 0.42em;
+  letter-spacing: 0.06em;
+  font-weight: 500;
+}
+
+/* ---------- anim ----------------------------------------------------------
+ * One diagram, big, with a line under it. The SVGs animate in the browser and
+ * freeze on frame one in PDF, so each is drawn to read either way.
+ */
+
+section.anim { text-align: center; }
+section.anim h1 { text-align: left; }
+
+section.anim img {
+  display: block;
+  margin: 0.1em auto 0.3em;
+  max-height: 360px;
+  width: auto;
+}
+
+section.anim p { font-size: 22pt; }
+
+/* Two diagrams side by side, for when the contrast between them is the lesson. */
+section.anim .pair {
+  display: flex;
+  justify-content: center;
+  align-items: flex-start;
+  gap: 90px;
+  margin-top: 0.2em;
+}
+
+section.anim .pair figure { margin: 0; }
+
+/* Fixed rather than max-height: the pair must be the same size as each other or
+ * the comparison reads as a difference in scale. */
+section.anim .pair img { height: 300px; width: auto; margin: 0 auto 0.3em; }
+
+section.anim .pair figcaption {
+  font-family: 'Fira Code', monospace;
+  font-size: 17pt;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+}
+
+section.anim .pair figcaption span {
+  display: block;
+  font-family: 'Montserrat', sans-serif;
+  font-size: 17pt;
+  font-weight: 500;
+  color: var(--faint);
+  letter-spacing: 0;
+  margin-top: 4px;
+}
+
+/* ---------- parts ---------------------------------------------------------
+ * Tip the bag out and check it against this. Placeholders carry a dashed box
+ * until the CAD exports and Gus's renders land.
+ */
+
+section.parts .grid {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 16px 26px;
+  margin-top: 0.2em;
+}
+
+section.parts figure { margin: 0; text-align: center; }
+
+section.parts img,
+section.parts .ph {
+  display: block;
+  width: 100%;
+  height: 94px;
+  object-fit: contain;
+}
+
+section.parts .ph { border: 2px dashed var(--rule); }
+
+section.parts figcaption {
+  font-size: 13pt;
+  line-height: 1.25;
+  margin-top: 6px;
+}
+
+section.parts figcaption strong { font-family: 'Fira Code', monospace; font-size: 0.95em; }
+
+/* ---------- qr ------------------------------------------------------------ */
+
+section.qr {
+  display: grid;
+  grid-template-columns: 1fr 340px;
+  column-gap: 56px;
+  row-gap: 0;
+  align-content: center;
+}
+
+section.qr > *:not(p:has(img)) { grid-column: 1; }
+
+section.qr p:has(img) {
+  grid-column: 2;
+  grid-row: 1 / -1;
+  align-self: center;
+  margin: 0;
+}
+
+section.qr img { width: 100%; max-height: 240px; object-fit: contain; image-rendering: pixelated; }
+
+/* ---------- code ----------------------------------------------------------
+ * Ink on paper, like everything else. A one-bit deck has no business with a
+ * dark syntax theme, and the point of a code slide here is the one line that
+ * changed rather than the colours.
+ */
+
+pre {
+  background: #eae6dc;
+  border: 2px solid var(--rule);
+  padding: 0.7em 0.9em;
+  font-size: 20pt;
+  line-height: 1.35;
+}
+
+pre code { font-family: 'Fira Code', monospace; }
+code { font-family: 'Fira Code', monospace; font-size: 0.92em; }
+
+section.code pre { font-size: 21pt; }
+section.code.compact pre { font-size: 17pt; line-height: 1.25; }
+
+/* A whole generated module, shown verbatim so people can compare it against
+ * what's open in their editor. */
+section.code.tiny pre { font-size: 15pt; line-height: 1.3; }
+
+.hljs-keyword, .hljs-title, .hljs-selector-tag { font-weight: 700; }
+.hljs-comment { color: var(--faint); font-style: italic; }
+.hljs-string, .hljs-symbol, .hljs-number { color: #1d5c7a; }
+.hljs-attr, .hljs-attribute { color: #6b4a8a; }
+
+mark {
+  background: rgba(192, 124, 10, 0.28);
+  color: inherit;
+  padding: 0 0.1em;
+}
+
+/* ---------- tables -------------------------------------------------------- */
+
+table {
+  border-collapse: collapse;
+  font-size: 19pt;
+  width: 100%;
+}
+
+th, td {
+  border-bottom: 2px solid var(--rule);
+  padding: 0.4em 0.6em;
+  text-align: left;
+}
+
+th {
+  font-family: 'Fira Code', monospace;
+  font-size: 15pt;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  color: var(--faint);
+}
+
+td.num, th.num { text-align: right; font-family: 'Fira Code', monospace; }
+
+/* Lists never fragment: everything is visible at once, because a workshop slide
+ * is a reference rather than a reveal. */
+section > ul > li,
+section > ol > li { opacity: 1 !important; }
+
+/* ---------- full bleed ------------------------------------------------------
+ * Someone else's artwork, shown the way they made it. No padding, no chrome,
+ * no progress rail — the image is the whole slide.
+ */
+
+section.fullbleed {
+  padding: 0;
+  background-color: var(--ink);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+section.fullbleed p {
+  margin: 0;
+  line-height: 0;
+  width: 100%;
+  height: 100%;
+}
+
+section.fullbleed img {
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+}
+
+section.fullbleed::before { content: none; }

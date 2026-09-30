@@ -138,6 +138,21 @@ upstream.
   deliberately left undone — it is the obvious thing to build once the robot is
   standing up, and a generator for it will follow.
 
+## Workshop slides
+
+`slides/` holds the deck from the Goatmire 2026 balance bot workshop — four
+hours from a pile of parts to a robot you drive from your phone. It covers
+assembly, the Beam Bots vocabulary, describing this robot in the DSL, and the
+balance loop and how to tune it.
+
+- [The PDF](https://github.com/beam-bots/bb_nsk/blob/main/slides/balance-bot-workshop.pdf)
+  to read or print
+- `slides/index.html`, if you have the repository checked out, to page through
+  in a browser
+
+Neither export carries the speaker notes. The slides are not part of the Hex
+package.
+
 ## Related packages
 
 - [`bb`](https://github.com/beam-bots/bb) — the robotics framework
