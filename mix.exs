@@ -114,7 +114,7 @@ defmodule BB.NSK.MixProject do
       # not carry a Skia NIF, and `optional: true` still puts it in the
       # dependency graph — so where a consumer does have it, it is compiled
       # before this package and the `Code.ensure_loaded?` guards see it.
-      {:emerge, "== 0.4.0-beta.1", optional: true},
+      {:emerge, "== 0.4.0", optional: true},
       {:video_interop, "~> 0.1.1", optional: true},
 
       # `BB.NSK.Network` drives these directly. Optional because a robot that
