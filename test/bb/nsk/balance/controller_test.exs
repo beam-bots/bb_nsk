@@ -330,6 +330,7 @@ defmodule BB.NSK.Balance.ControllerTest do
       # suite meant a test that armed it or left a drive command live failed a
       # different test in a later file.
       start_supervised!({TestRobot, []})
+      BB.PubSub.subscribe(TestRobot, [:command])
 
       {:ok, link_path} = BB.Robot.path_to(TestRobot.robot(), :imu_link)
 
@@ -367,9 +368,32 @@ defmodule BB.NSK.Balance.ControllerTest do
         )
 
       BB.PubSub.publish(TestRobot, path, message)
-      Process.sleep(30)
+
+      # Each sync lands behind the message the previous hop sent on, so once the
+      # balancer replies its step has run, and any command it issued has been
+      # started by the runtime.
+      :sys.get_state(BB.Process.whereis(TestRobot, :lean_angle))
+      :sys.get_state(BB.Process.whereis(TestRobot, :balancer))
+      await_started_commands()
 
       Runtime.state(TestRobot)
+    end
+
+    # The runtime publishes a command's result before it applies the command's
+    # transition, so it is synced once more after the result arrives.
+    defp await_started_commands do
+      receive do
+        {:bb, [:command, name, id], %BB.Message{payload: %BB.Command.Event{status: :started}}} ->
+          assert_receive {:bb, [:command, ^name, ^id],
+                          %BB.Message{payload: %BB.Command.Event{status: status}}}
+                         when status in [:succeeded, :failed],
+                         1_000
+
+          :sys.get_state(Runtime.via(TestRobot))
+          await_started_commands()
+      after
+        0 -> :ok
+      end
     end
 
     # Arming used to land in `:idle` whatever attitude the robot was in, so a
