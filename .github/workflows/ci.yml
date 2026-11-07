@@ -19,7 +19,7 @@ permissions:
 
 jobs:
   CI:
-    uses: beam-bots/.github/.github/workflows/elixir-ci.yml@1e4f127f13f533a14b489490c21c4f4330257f53 # main
+    uses: beam-bots/.github/.github/workflows/elixir-ci.yml@facc46ec3ffdee4f6b2bab6c6d8b9c7df7e95757 # main
     with:
       # `nerves_runtime` reaches `nerves_uevent`, which builds C against libmnl,
       # and `vintage_net_wifi` builds against libnl-genl. Both are optional
